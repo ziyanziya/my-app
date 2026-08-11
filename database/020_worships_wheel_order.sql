@@ -1,0 +1,25 @@
+-- 020_worships_wheel_order.sql
+UPDATE worships SET name = 'أذكار المساء', title = 'أذكار المساء', description = 'أذكار المساء اليومية بعد صلاة المغرب.', icon = 'moon', time = '18:00:00', points = 5, is_active = 1 WHERE `order` = 1;
+UPDATE worships SET name = 'صلاة المغرب', title = 'صلاة المغرب', description = 'أداء صلاة المغرب في وقتها مع خشوع.', icon = 'sun', time = '18:00:00', points = 5, is_active = 1 WHERE `order` = 2;
+UPDATE worships SET name = 'سنة المغرب', title = 'سنة المغرب', description = 'سنة صلاة المغرب بعد الفرائض.', icon = 'star', time = NULL, points = 3, is_active = 1 WHERE `order` = 3;
+UPDATE worships SET name = 'صلاة العشاء', title = 'صلاة العشاء', description = 'صلاة العشاء في وقتها مع حضور القلب.', icon = 'moon', time = '19:30:00', points = 5, is_active = 1 WHERE `order` = 4;
+UPDATE worships SET name = 'سورة الملك', title = 'سورة الملك', description = 'قراءة سورة الملك بعد صلاة العشاء.', icon = 'book', time = NULL, points = 4, is_active = 1 WHERE `order` = 5;
+UPDATE worships SET name = 'سنة العشاء', title = 'سنة العشاء', description = 'أداء سنة صلاة العشاء بعد الفريضة.', icon = 'star', time = NULL, points = 3, is_active = 1 WHERE `order` = 6;
+UPDATE worships SET name = 'قيام الليل', title = 'قيام الليل', description = 'صلاة قيام الليل والتسبيح والدعاء في الثلث الأخير.', icon = 'moon', time = '03:00:00', points = 8, is_active = 1 WHERE `order` = 7;
+UPDATE worships SET name = 'الشفع والوتر', title = 'الشفع والوتر', description = 'أداء صلاة الشفع والوتر بعد العشاء أو قبل النوم.', icon = 'star', time = NULL, points = 6, is_active = 1 WHERE `order` = 8;
+UPDATE worships SET name = 'أذكار النوم', title = 'أذكار النوم', description = 'قراءة أذكار النوم قبل النوم لطلب الحفظ والرحمة.', icon = 'moon', time = '22:30:00', points = 5, is_active = 1 WHERE `order` = 9;
+UPDATE worships SET name = 'صلاة التهجد', title = 'صلاة التهجد', description = 'صلاة التهجد بعد صلاة العشاء وقبل الفجر.', icon = 'moon', time = '03:30:00', points = 8, is_active = 1 WHERE `order` = 10;
+UPDATE worships SET name = 'الدعاء', title = 'الدعاء', description = 'دعاء وتضرع بعد الصلاة.', icon = 'heart', time = NULL, points = 5, is_active = 1 WHERE `order` = 11;
+UPDATE worships SET name = 'صلاة الفجر', title = 'صلاة الفجر', description = 'صلاة الفجر في وقتها مع بداية يوم جديد.', icon = 'sun', time = '05:00:00', points = 5, is_active = 1 WHERE `order` = 12;
+UPDATE worships SET name = 'قراءة القرآن', title = 'قراءة القرآن', description = 'قراءة جزء من القرآن الكريم يومياً.', icon = 'book', time = NULL, points = 5, is_active = 1 WHERE `order` = 13;
+UPDATE worships SET name = 'سنة العمرة', title = 'سنة العمرة', description = 'أداء سنة العمرة وأذكارها التقوية.', icon = 'star', time = NULL, points = 4, is_active = 1 WHERE `order` = 14;
+UPDATE worships SET name = 'أذكار الصباح', title = 'أذكار الصباح', description = 'قراءة أذكار الصباح لبدء اليوم بذكر الله.', icon = 'sun', time = '06:00:00', points = 5, is_active = 1 WHERE `order` = 15;
+UPDATE worships SET name = 'صلاة الضحى', title = 'صلاة الضحى', description = 'صلاة الضحى بعد شروق الشمس للدعاء والبركة.', icon = 'sun', time = '08:00:00', points = 5, is_active = 1 WHERE `order` = 16;
+UPDATE worships SET name = 'الذكر', title = 'الذكر', description = 'ذكر الله بعد الصلوات والأذكار اليومية.', icon = 'heart', time = NULL, points = 4, is_active = 1 WHERE `order` = 17;
+UPDATE worships SET name = 'صلاة الزوال', title = 'صلاة الزوال', description = 'صلاة الزوال قبيل صلاة الظهر.', icon = 'sun', time = '12:00:00', points = 5, is_active = 1 WHERE `order` = 18;
+UPDATE worships SET name = 'صلاة الظهر', title = 'صلاة الظهر', description = 'صلاة الظهر وسط اليوم في وقتها.', icon = 'sun', time = '13:00:00', points = 5, is_active = 1 WHERE `order` = 19;
+UPDATE worships SET name = 'سنة صلاة الظهر', title = 'سنة صلاة الظهر', description = 'سنة صلاة الظهر بعد الفريضة.', icon = 'star', time = NULL, points = 4, is_active = 1 WHERE `order` = 20;
+UPDATE worships SET name = 'الذكر', title = 'الذكر', description = 'استمرار ذكر الله بعد الظهر والمساء.', icon = 'heart', time = NULL, points = 4, is_active = 1 WHERE `order` = 21;
+UPDATE worships SET name = 'الورد اليومي', title = 'الورد اليومي', description = 'الورد اليومي من القرآن والأذكار.', icon = 'book', time = NULL, points = 5, is_active = 1 WHERE `order` = 22;
+UPDATE worships SET name = 'الدعاء', title = 'الدعاء', description = 'الدعاء في نهاية اليوم وبعد العبادة.', icon = 'heart', time = NULL, points = 5, is_active = 1 WHERE `order` = 23;
+UPDATE worships SET name = 'صلاة العصر', title = 'صلاة العصر', description = 'صلاة العصر في وقتها وقبل نهاية النهار.', icon = 'sun', time = '15:30:00', points = 5, is_active = 1 WHERE `order` = 24;

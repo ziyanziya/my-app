@@ -1,0 +1,19 @@
+import { useEffect, useState } from 'react';
+import { Avatar, Box, Chip, CircularProgress, IconButton, MenuItem, Paper, Select, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Tooltip, Typography } from '@mui/material';
+import { BlockRounded } from '@mui/icons-material';
+import PageShell from '../components/PageShell';
+import { apiFetch } from '../api/client';
+import { useAuth } from '../auth/AuthContext';
+
+type User = { id: number; name: string; email: string; role: string; is_active: number; created_at: string; avatar_url?: string; light: number; worship_count: number };
+export default function UsersPage() {
+  const { session } = useAuth(); const [items, setItems] = useState<User[]>([]); const [search, setSearch] = useState(''); const [status, setStatus] = useState(''); const [loading, setLoading] = useState(true); const [error, setError] = useState('');
+  const load = () => { setLoading(true); const query = new URLSearchParams({ ...(search ? { search } : {}), ...(status ? { status } : {}), limit: '50' }); apiFetch<{ data: { items: User[] } }>(`/admin/users?${query}`, {}, session?.accessToken).then((r) => setItems(r.data.items)).catch((e) => setError(e.message)).finally(() => setLoading(false)); };
+  useEffect(load, [session?.accessToken, status]);
+  const toggleUser = async (user: User) => { try { await apiFetch(`/admin/users/${user.id}`, { method: 'PATCH', body: JSON.stringify({ is_active: !user.is_active }) }, session?.accessToken); load(); } catch (e) { setError(e instanceof Error ? e.message : 'تعذر تحديث المستخدم.'); } };
+  return <PageShell title="المستخدمون" subtitle="إدارة الحسابات ومتابعة النور والعبادات">
+    <Paper sx={{ p: 2.2, mb: 2 }}><Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}><TextField value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && load()} placeholder="ابحث بالاسم أو البريد" size="small" sx={{ minWidth: 260, flex: 1 }} /><Select size="small" value={status} onChange={(e) => setStatus(e.target.value)} displayEmpty sx={{ minWidth: 150 }}><MenuItem value="">كل الحالات</MenuItem><MenuItem value="active">نشط</MenuItem><MenuItem value="suspended">موقوف</MenuItem></Select></Box></Paper>
+    {error ? <Typography color="error.light" sx={{ mb: 2 }}>{error}</Typography> : null}
+    <Paper sx={{ overflow: 'hidden' }}><TableContainer><Table><TableHead><TableRow><TableCell>المستخدم</TableCell><TableCell>المستوى</TableCell><TableCell>النور</TableCell><TableCell>العبادات</TableCell><TableCell>تاريخ التسجيل</TableCell><TableCell>الحالة</TableCell><TableCell>إجراء</TableCell></TableRow></TableHead><TableBody>{loading ? <TableRow><TableCell colSpan={7} align="center"><CircularProgress size={24} /></TableCell></TableRow> : items.map((user) => <TableRow key={user.id} hover><TableCell><Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}><Avatar src={user.avatar_url}>{user.name?.slice(0, 1)}</Avatar><Box><Typography sx={{ fontWeight: 700 }}>{user.name || 'بدون اسم'}</Typography><Typography variant="caption" color="text.secondary">{user.email}</Typography></Box></Box></TableCell><TableCell>{user.role === 'admin' ? 'مدير' : 'مستخدم'}</TableCell><TableCell sx={{ color: 'secondary.main' }}>{new Intl.NumberFormat('ar-MA').format(user.light)}</TableCell><TableCell>{user.worship_count}</TableCell><TableCell>{new Intl.DateTimeFormat('ar-MA').format(new Date(user.created_at))}</TableCell><TableCell><Chip label={user.is_active ? 'نشط' : 'موقوف'} size="small" color={user.is_active ? 'success' : 'error'} /></TableCell><TableCell><Tooltip title={user.is_active ? 'إيقاف الحساب' : 'تفعيل الحساب'}><IconButton color={user.is_active ? 'warning' : 'success'} onClick={() => toggleUser(user)}><BlockRounded /></IconButton></Tooltip></TableCell></TableRow>)}</TableBody></Table></TableContainer></Paper>
+  </PageShell>;
+}

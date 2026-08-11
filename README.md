@@ -13,8 +13,12 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
 2. Start the app
 
    ```bash
-   npx expo start
+   npm start
    ```
+
+`npm start` launches the Expo app and the local authentication API together.
+`npm run web`, `npm run android`, and `npm run ios` do the same for their
+respective targets.
 
 In the output, you'll find options to open the app in a
 
