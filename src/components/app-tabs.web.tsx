@@ -4,7 +4,8 @@ import { Colors, Spacing } from '@/constants/theme';
 
 export default function AppTabs() {
   const scheme = useColorScheme();
-  const colors = Colors[scheme === 'unspecified' ? 'light' : scheme];
+  const theme = scheme === 'dark' ? 'dark' : 'light';
+  const colors = Colors[theme];
 
   return (
     <View style={[styles.tabsContainer, { backgroundColor: colors.backgroundElement }]}> 

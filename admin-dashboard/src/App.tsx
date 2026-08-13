@@ -28,8 +28,8 @@ import {
   DarkModeRounded,
   EmojiEventsRounded,
   EventAvailableRounded,
-  MenuRounded,
   MenuBookRounded,
+  MenuRounded,
   NotificationsRounded,
   PeopleAltRounded,
   SettingsRounded,
@@ -49,6 +49,7 @@ import LevelsPage from './pages/LevelsPage';
 import StreakRulesPage from './pages/StreakRulesPage';
 import NotificationsPage from './pages/NotificationsPage';
 import SettingsPage from './pages/SettingsPage';
+import AdhanPage from './pages/AdhanPage';
 import LoginPage from './pages/LoginPage';
 import { AuthProvider, useAuth } from './auth/AuthContext';
 
@@ -215,8 +216,8 @@ const theme = createTheme({
   },
 });
 
-// In RTL, MUI mirrors the default Drawer transition. This preserves a physical
-// right-side drawer that always moves between the right edge and the screen.
+// MUI mirrors Drawer transition directions in RTL layouts. Keep the drawer
+// physically on the right, while always sliding it in from and out to the right.
 const RightDrawerSlide = (props: React.ComponentProps<typeof Slide>) => (
   <Slide {...props} direction="left" />
 );
@@ -232,13 +233,14 @@ const navItems = [
   ['المستويات', '/levels', <ShieldRounded />],
   ['مكافآت المواظبة', '/streak-rules', <WbSunnyRounded />],
   ['الإشعارات', '/notifications', <NotificationsRounded />],
+  ['أصوات الأذان', '/adhan', <NotificationsRounded />],
   ['الإعدادات', '/settings', <SettingsRounded />],
 ] as const;
 
 function ProtectedLayout() {
   const location = useLocation();
-  const muiTheme = useTheme();
-  const isMobile = useMediaQuery(muiTheme.breakpoints.down('md'));
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { session, logout } = useAuth();
   const [drawerOpen, setDrawerOpen] = useState(!isMobile);
 
@@ -254,7 +256,6 @@ function ProtectedLayout() {
     <Box
       sx={{
         display: 'flex',
-        flexDirection: 'row-reverse',
         minHeight: '100vh',
         bgcolor: 'background.default',
         backgroundImage: `
@@ -273,7 +274,6 @@ function ProtectedLayout() {
         }}
       >
         <Toolbar sx={{ justifyContent: 'space-between', py: 1.5 }}>
-          {/* Left side - User Info */}
           <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
             <Avatar
               sx={{
@@ -297,18 +297,16 @@ function ProtectedLayout() {
             </Box>
           </Stack>
 
-          {/* Right side - Actions */}
           <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
-            <IconButton
-              color="secondary"
-              size="small"
-              onClick={() => setDrawerOpen((prev) => !prev)}
-              sx={{
-                '&:hover': { backgroundColor: alpha('#d4a574', 0.15) },
-              }}
-            >
-              <MenuRounded fontSize="small" />
-            </IconButton>
+            <Tooltip title={drawerOpen ? 'إخفاء القائمة الجانبية' : 'إظهار القائمة الجانبية'}>
+              <IconButton
+                color="secondary"
+                onClick={() => setDrawerOpen((open) => !open)}
+                sx={{ ml: 1, bgcolor: alpha('#d4a574', 0.08), '&:hover': { bgcolor: alpha('#d4a574', 0.15) } }}
+              >
+                <MenuRounded />
+              </IconButton>
+            </Tooltip>
             <Tooltip title="الوضع الداكن">
               <IconButton
                 color="secondary"
@@ -350,20 +348,18 @@ function ProtectedLayout() {
       {/* Drawer */}
       <Drawer
         variant={isMobile ? 'temporary' : 'persistent'}
+        anchor="right"
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
-        anchor="right"
-        slots={{ transition: RightDrawerSlide }}
         ModalProps={{ keepMounted: true }}
+        slots={{ transition: RightDrawerSlide }}
         sx={{
-          width: { xs: 0, md: drawerOpen ? drawerWidth : 0 },
+          width: drawerWidth,
           flexShrink: 0,
-          transition: (t) => t.transitions.create('width', { duration: t.transitions.duration.standard }),
           '& .MuiDrawer-paper': {
             width: drawerWidth,
             boxSizing: 'border-box',
             zIndex: (t) => t.zIndex.drawer,
-            borderLeft: `1px solid ${alpha('#d4a574', 0.18)}`,
           },
         }}
       >
@@ -445,11 +441,13 @@ function ProtectedLayout() {
         component="main"
         sx={{
           flexGrow: 1,
-          width: 'auto',
-          p: { xs: 2, sm: 3, md: 4 },
+          width: { xs: '100%', md: drawerOpen ? `calc(100% - ${drawerWidth}px)` : '100%' },
+          mr: { xs: 0, md: drawerOpen ? `${drawerWidth}px` : 0 },
+          p: { xs: 1.5, sm: 2.5, md: 3 },
+          minHeight: '100vh',
+          transition: (t) => t.transitions.create(['width', 'margin-right'], { duration: t.transitions.duration.standard }),
           minWidth: 0,
           overflow: 'auto',
-          transition: (t) => t.transitions.create('width', { duration: t.transitions.duration.standard }),
         }}
       >
         <Toolbar /> {/* Space for AppBar */}
@@ -464,6 +462,7 @@ function ProtectedLayout() {
           <Route path="/levels" element={<LevelsPage />} />
           <Route path="/streak-rules" element={<StreakRulesPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
+          <Route path="/adhan" element={<AdhanPage />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Routes>
       </Box>

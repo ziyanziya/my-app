@@ -33,16 +33,29 @@ function InAppVideoPlayer({ media, onClose }: { media: PracticalMedia; onClose: 
     contentType: url.toLowerCase().includes('.m3u8') ? 'hls' : 'auto',
     metadata: { title: media.title || media.original_name || 'فيديو تعليمي' },
   };
-  const player = useVideoPlayer(source, (videoPlayer) => videoPlayer.play());
+  const player = useVideoPlayer(source, (videoPlayer) => {
+    try {
+      videoPlayer.play();
+    } catch {
+      // Ignore autoplay issues on some devices; the player can still be used manually.
+    }
+  });
 
-  useEffect(() => () => player.pause(), [player]);
+  const handleClose = () => {
+    try {
+      player.pause();
+    } catch {
+      // ignore: expo-video may already have released the native player during unmount
+    }
+    onClose();
+  };
 
   return (
-    <Modal visible transparent animationType="fade" onRequestClose={onClose} statusBarTranslucent>
+    <Modal visible transparent animationType="fade" onRequestClose={handleClose} statusBarTranslucent>
       <View style={styles.playerOverlay}>
         <View style={styles.playerSheet}>
           <View style={styles.playerHeader}>
-            <Pressable style={styles.closePlayer} onPress={onClose} accessibilityRole="button" accessibilityLabel="إغلاق الفيديو">
+            <Pressable style={styles.closePlayer} onPress={handleClose} accessibilityRole="button" accessibilityLabel="إغلاق الفيديو">
               <Text style={styles.closePlayerText}>×</Text>
             </Pressable>
             <View style={styles.playerTitleWrap}>
@@ -63,6 +76,128 @@ function InAppVideoPlayer({ media, onClose }: { media: PracticalMedia; onClose: 
   );
 }
 
+function VideoCardPreview({
+  media,
+  isPlaying,
+  isInline,
+  onOpen,
+  onInlineToggle,
+  onMaximize,
+}: {
+  media: PracticalMedia;
+  isPlaying: boolean;
+  isInline: boolean;
+  onOpen: () => void;
+  onInlineToggle: () => void;
+  onMaximize: () => void;
+}) {
+  const url = resolveMediaUrl(media.url);
+  const source: VideoSource = {
+    uri: url,
+    contentType: url.toLowerCase().includes('.m3u8') ? 'hls' : 'auto',
+    metadata: { title: media.title || media.original_name || 'فيديو تعليمي' },
+  };
+
+  const player = useVideoPlayer(source, (videoPlayer) => {
+    try {
+      videoPlayer.muted = !isInline;
+      if (isInline) {
+        videoPlayer.play();
+      } else {
+        videoPlayer.pause();
+      }
+    } catch {
+      // Some versions require the player to be created but not actively playing in preview mode.
+    }
+  });
+
+  const playCurrentPlayer = () => {
+    try {
+      player.muted = false;
+      player.play();
+    } catch {
+      // Ignore transient playback state changes.
+    }
+  };
+
+  const pauseCurrentPlayer = () => {
+    try {
+      player.muted = true;
+      player.pause();
+    } catch {
+      // Ignore transient playback state changes.
+    }
+  };
+
+  useEffect(() => {
+    if (isInline) {
+      playCurrentPlayer();
+    } else {
+      pauseCurrentPlayer();
+    }
+  }, [isInline]);
+
+  return (
+    <View style={styles.videoCard}>
+      {isInline ? (
+        <View style={styles.inlinePlayerWrap}>
+          <VideoView
+            style={styles.inlineVideo}
+            player={player}
+            nativeControls
+            contentFit="cover"
+            fullscreenOptions={{ enable: true, orientation: 'landscape' }}
+          />
+        </View>
+      ) : (
+        <Pressable onPress={onOpen} accessibilityRole="button" accessibilityLabel={`عرض الفيديو ${media.title || media.original_name || 'تعليمي'}`}>
+          <View style={styles.videoPreview}>
+            <VideoView
+              style={styles.previewVideo}
+              player={player}
+              contentFit="cover"
+              nativeControls={false}
+              pointerEvents="none"
+            />
+            <View style={styles.coverBadge}>
+              <Text style={styles.previewPlay}>▶</Text>
+            </View>
+            <View style={styles.coverInfo}>
+              <Text style={styles.coverLabel}>فيديو</Text>
+              <Text numberOfLines={2} style={styles.videoName}>{media.title || media.original_name || 'فيديو تعليمي'}</Text>
+            </View>
+          </View>
+        </Pressable>
+      )}
+
+      <View style={styles.controls}>
+        <View style={styles.maximizeSlot}>
+          <Pressable style={[styles.stopButton, { borderColor: '#dcb575' }]} onPress={() => {
+            playCurrentPlayer();
+            onMaximize();
+          }}>
+            <Text style={[styles.stopText, { color: '#f5e6d3' }]}>⤢ تكبير</Text>
+          </Pressable>
+        </View>
+        <Pressable
+          style={[styles.controlButton, { backgroundColor: '#dcb575' }]}
+          onPress={() => {
+            if (isInline) {
+              pauseCurrentPlayer();
+              onInlineToggle();
+              return;
+            }
+            playCurrentPlayer();
+            onOpen();
+          }}
+        >
+          <Text style={styles.playText}>{isInline ? 'إيقاف' : isPlaying ? 'قيد العرض' : 'عرض'} ▶</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
 export default function PracticalRoad() {
   const { worshipId = '', title = 'العبادة' } = useLocalSearchParams<{ worshipId?: string; title?: string }>();
   const theme = getTheoryDisplayTheme(worshipId);
@@ -71,6 +206,7 @@ export default function PracticalRoad() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedMedia, setSelectedMedia] = useState<PracticalMedia | null>(null);
+  const [activeVideoId, setActiveVideoId] = useState<number | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -120,26 +256,23 @@ export default function PracticalRoad() {
               <View style={[styles.stepNumber, { borderColor: theme.accent }]}><Text style={[styles.stepNumberText, { color: theme.accent }]}>{stepIndex + 1}</Text></View>
               <View style={styles.stepHeadingText}>
                 <Text style={styles.stepTitle}>{step.title}</Text>
-                {step.description ? <Text style={[styles.description, { color: theme.muted }]}>{step.description}</Text> : null}
               </View>
             </View>
 
             {step.media?.length ? step.media.map((media, mediaIndex) => {
-              const isPlaying = selectedMedia?.id === media.id;
+              const isPlaying = activeVideoId === media.id || selectedMedia?.id === media.id;
+              const isInline = activeVideoId === media.id;
               return (
-                <View key={media.id} style={[styles.videoCard, { borderColor: theme.accent, backgroundColor: theme.background }]}>
-                  <View style={[styles.videoPreview, { backgroundColor: `${theme.accent}22` }]}>
-                    <Text style={[styles.previewPlay, { color: theme.accent }]}>▶</Text>
-                    <Text numberOfLines={1} style={styles.videoName}>{media.title || media.original_name || `الفيديو ${mediaIndex + 1}`}</Text>
-                  </View>
-                  <View style={styles.controls}>
-                    <Pressable style={[styles.controlButton, { backgroundColor: theme.accent }]} onPress={() => setSelectedMedia(media)}>
-                      <Text style={styles.playText}>{isPlaying ? 'قيد العرض' : 'عرض'} ▶</Text>
-                    </Pressable>
-                    <Pressable style={[styles.stopButton, { borderColor: theme.accent }]} onPress={() => setSelectedMedia(null)} disabled={!isPlaying}>
-                      <Text style={[styles.stopText, { color: isPlaying ? theme.text : theme.muted }]}>■ إيقاف</Text>
-                    </Pressable>
-                  </View>
+                <View key={media.id}>
+                  <VideoCardPreview
+                    media={media}
+                    isPlaying={isPlaying}
+                    isInline={isInline}
+                    onOpen={() => setActiveVideoId((current) => current === media.id ? null : media.id)}
+                    onInlineToggle={() => setActiveVideoId((current) => current === media.id ? null : media.id)}
+                    onMaximize={() => setSelectedMedia(media)}
+                  />
+                  {step.description ? <Text style={[styles.videoDescription, { color: theme.muted }]}>{step.description}</Text> : null}
                 </View>
               );
             }) : <Text style={[styles.noVideo, { color: theme.muted }]}>سيُضاف فيديو لهذا القسم قريبًا.</Text>}
@@ -173,15 +306,55 @@ const styles = StyleSheet.create({
   stepNumberText: { fontWeight: '900', fontSize: 13 },
   stepHeadingText: { flex: 1, alignItems: 'flex-end' },
   stepTitle: { color: '#f5e6d3', fontSize: 17, fontWeight: '900', writingDirection: 'rtl', textAlign: 'right' },
-  description: { fontSize: 11, lineHeight: 17, writingDirection: 'rtl', textAlign: 'right', marginTop: 4 },
-  videoCard: { borderWidth: 1, borderRadius: 13, marginTop: 13, overflow: 'hidden' },
-  videoPreview: { height: 104, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14 },
-  previewPlay: { fontSize: 30, marginBottom: 5 },
-  videoName: { color: '#f5e6d3', fontSize: 12, fontWeight: '700', writingDirection: 'rtl' },
-  controls: { flexDirection: 'row-reverse', gap: 8, padding: 9, justifyContent: 'flex-end' },
-  controlButton: { minWidth: 80, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 16, alignItems: 'center' },
+  videoDescription: { fontSize: 11, lineHeight: 17, writingDirection: 'rtl', textAlign: 'right', marginTop: 10, marginBottom: 2 },
+  videoCard: { borderRadius: 13, marginTop: 13, overflow: 'hidden', backgroundColor: '#160a10' },
+  videoPreview: {
+    height: 132,
+    position: 'relative',
+    overflow: 'hidden',
+    borderRadius: 13,
+    backgroundColor: '#000',
+  },
+  previewVideo: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#000',
+  },
+  inlinePlayerWrap: {
+    width: '100%',
+    overflow: 'hidden',
+    backgroundColor: '#000',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(201,169,110,0.35)',
+  },
+  inlineVideo: {
+    width: '100%',
+    aspectRatio: 16 / 9,
+    backgroundColor: '#000',
+  },
+  coverBadge: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    transform: [{ translateX: -22 }, { translateY: -22 }],
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(17, 12, 15, 0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(201,169,110,0.5)',
+  },
+  previewPlay: { color: '#f5e6d3', fontSize: 24, marginLeft: 2 },
+  coverInfo: { position: 'absolute', left: 12, right: 12, bottom: 12, alignItems: 'flex-end' },
+  coverLabel: { color: '#d7b67b', fontSize: 10, fontWeight: '800', writingDirection: 'rtl', marginBottom: 3 },
+  videoName: { color: '#f5e6d3', fontSize: 12, fontWeight: '700', writingDirection: 'rtl', textAlign: 'right' },
+  controls: { flexDirection: 'row-reverse', gap: 8, padding: 9, justifyContent: 'flex-end', alignItems: 'center' },
+  controlButton: { minWidth: 80, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 16, alignItems: 'center', backgroundColor: '#dcb575' },
   playText: { color: '#1a0e14', fontSize: 11, fontWeight: '900', writingDirection: 'rtl' },
-  stopButton: { minWidth: 70, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 16, borderWidth: 1, alignItems: 'center' },
+  maximizeSlot: { marginRight: 0 },
+  stopButton: { minWidth: 70, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 16, borderWidth: 1, alignItems: 'center', borderColor: '#dcb575' },
   stopText: { fontSize: 11, fontWeight: '800', writingDirection: 'rtl' },
   noVideo: { textAlign: 'right', writingDirection: 'rtl', fontSize: 11, marginTop: 12 },
   playerOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.88)', justifyContent: 'center', padding: 16 },

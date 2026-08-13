@@ -13,7 +13,8 @@ const trailingItems = [
 
 export function HomeBottomTabs({ activeKey = 'home' }: { activeKey?: string }) {
   const scheme = useColorScheme();
-  const colors = Colors[scheme === 'unspecified' ? 'light' : scheme];
+  const theme = scheme === 'dark' ? 'dark' : 'light';
+  const colors = Colors[theme];
 
   return (
     <View style={[styles.tabBar, { backgroundColor: colors.backgroundElement ?? '#24161f' }]}>

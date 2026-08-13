@@ -29,7 +29,15 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(morgan('dev'));
 
-app.use('/uploads', express.static(path.resolve(__dirname, '..', 'uploads')));
+// Serve uploads and allow cross-origin resource usage for media (audio)
+app.use(
+  '/uploads',
+  (req, res, next) => {
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    next();
+  },
+  express.static(path.resolve(__dirname, '..', 'uploads')),
+);
 
 app.use('/api/v1', routes);
 

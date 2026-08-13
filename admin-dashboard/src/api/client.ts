@@ -2,7 +2,7 @@ const API_PORT = 5002;
 const SESSION_STORAGE_KEY = 'sirat-admin-session';
 
 const getBaseUrl = () => {
-  const configured = import.meta.env.VITE_API_URL as string | undefined;
+  const configured = ((import.meta as any).env?.VITE_API_URL as string | undefined);
   if (configured) return configured.replace(/\/+$/, '');
   return `http://${window.location.hostname}:${API_PORT}/api/v1`;
 };
