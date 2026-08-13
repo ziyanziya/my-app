@@ -9,6 +9,7 @@ import {
   ScrollView,
   Animated,
   TouchableOpacity,
+  Pressable,
   Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -310,8 +311,8 @@ const PrayerCircle = ({
   onDetailsPress,
 }: {
   currentTime: Date;
-  wheelItems: { id?: string; name: string; time?: string; startTime?: Date; endTime?: Date; isActive?: boolean; reverseTextDirection?: boolean }[];
-  onDetailsPress: (item: { id?: string; name: string; time?: string; endTime?: Date }) => void;
+  wheelItems: { id?: string; name: string; time?: string; startTime?: Date; endTime?: Date; isActive?: boolean; reverseTextDirection?: boolean; worshipId?: number | string }[];
+  onDetailsPress: (item: { id?: string; name: string; time?: string; endTime?: Date; worshipId?: number | string }) => void;
 }) => {
   const { width } = useWindowDimensions();
   const circleSize = Math.min(width * 0.94, 390);
@@ -639,13 +640,18 @@ const PrayerCircle = ({
              >
                {item.name}
              </Text>
-             {isSelected && item.time && (
-               <View style={circleStyles.sliceTimeRow}>
-                 <Text numberOfLines={1} style={[circleStyles.sliceTime, circleStyles.sliceTimeSelected]}>
-                   {item.time}
-                 </Text>
-                 {remainingTime && <BlinkingRemainingTime time={remainingTime} />}
-               </View>
+             {isSelected && (
+               (() => {
+                 const displayedTime = item.time ?? (item.startTime ? formatWheelTime(item.startTime) : undefined);
+                 return displayedTime ? (
+                   <View style={circleStyles.sliceTimeRow}>
+                     <Text numberOfLines={1} style={[circleStyles.sliceTime, circleStyles.sliceTimeSelected]}>
+                       {displayedTime}
+                     </Text>
+                     {remainingTime && <BlinkingRemainingTime time={remainingTime} />}
+                   </View>
+                 ) : null;
+               })()
              )}
              {isSelected && (
                <TouchableOpacity
@@ -834,6 +840,7 @@ const BottomNav = ({ activeTab, onTabChange }: BottomNavProps) => {
 export default function PrayerHomeScreen() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [activeTab, setActiveTab] = useState('home');
+  const [isMoreMenuVisible, setIsMoreMenuVisible] = useState(false);
   const [prayerTimes, setPrayerTimes] = useState<PrayerTimesResult | null>(null);
   const [prayerError, setPrayerError] = useState<string | null>(null);
   const [wheelItems, setWheelItems] = useState<DailyWheelItem[]>([]);
@@ -877,6 +884,16 @@ export default function PrayerHomeScreen() {
       setIsAuthenticated(false);
       router.replace('/login');
     }
+  };
+
+  const handleTabChange = (tabId: string) => {
+    if (tabId === 'more') {
+      setIsMoreMenuVisible((current) => !current);
+      return;
+    }
+
+    setActiveTab(tabId);
+    setIsMoreMenuVisible(false);
   };
 
   useEffect(() => {
@@ -1020,7 +1037,41 @@ export default function PrayerHomeScreen() {
         <ProgressCard />
       </ScrollView>
 
-      <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
+      <BottomNav activeTab={activeTab} onTabChange={handleTabChange} />
+
+      <Modal
+        transparent
+        visible={isMoreMenuVisible}
+        animationType="fade"
+        onRequestClose={() => setIsMoreMenuVisible(false)}
+      >
+        <Pressable style={styles.moreOverlay} onPress={() => setIsMoreMenuVisible(false)}>
+          <View style={styles.moreMenuCard}>
+            <TouchableOpacity
+              style={styles.moreMenuItem}
+              activeOpacity={0.8}
+              onPress={() => {
+                setIsMoreMenuVisible(false);
+                router.push('/qibla');
+              }}
+            >
+              <Text style={styles.moreMenuItemIcon}>🧭</Text>
+              <Text style={styles.moreMenuItemLabel}>القبلة</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.moreMenuItem}
+              activeOpacity={0.8}
+              onPress={() => {
+                setIsMoreMenuVisible(false);
+                router.push('/worships');
+              }}
+            >
+              <Text style={styles.moreMenuItemIcon}>📿</Text>
+              <Text style={styles.moreMenuItemLabel}>العبادات</Text>
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+      </Modal>
 
       <Modal
         transparent
@@ -1166,6 +1217,30 @@ const styles = StyleSheet.create({
   logoutMenuItem: { borderBottomWidth: 0, borderTopWidth: 1, borderTopColor: 'rgba(214,109,109,0.26)', paddingTop: 10 },
   logoutMenuIcon: { color: '#ef9898', fontSize: 22, width: 26, textAlign: 'center' },
   logoutMenuLabel: { color: '#ef9898', fontSize: 15, flex: 1, textAlign: 'right', writingDirection: 'rtl' },
+  moreOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    paddingBottom: 72,
+    paddingHorizontal: 20,
+    backgroundColor: 'rgba(10, 4, 8, 0.25)',
+  },
+  moreMenuCard: {
+    backgroundColor: '#29121c',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(201,169,110,0.24)',
+    overflow: 'hidden',
+  },
+  moreMenuItem: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 18,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(245,230,211,0.08)',
+  },
+  moreMenuItemIcon: { fontSize: 22, marginLeft: 12 },
+  moreMenuItemLabel: { color: '#f5e6d3', fontSize: 16, flex: 1, textAlign: 'right', writingDirection: 'rtl' },
   timeCard: {
     backgroundColor: 'rgba(60,30,40,0.7)',
     borderRadius: 22, padding: 16, width: '100%',
