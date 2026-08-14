@@ -9,6 +9,18 @@ import { getAuthApiBaseUrl } from '@/services/auth-api';
 const AUTH_TOKEN_KEY = 'authToken';
 const emailIsValid = (value: string) => /^\S+@\S+\.\S+$/.test(value.trim());
 
+/** تحويل أي قيمة إلى نص آمن لعرضه في واجهة المستخدم */
+const toErrorString = (value: unknown, fallback: string): string => {
+  if (typeof value === 'string' && value.trim()) return value.trim();
+  if (value && typeof value === 'object') {
+    const obj = value as Record<string, unknown>;
+    if (typeof obj.message === 'string' && obj.message.trim()) return obj.message.trim();
+    if (typeof obj.error === 'string' && obj.error.trim()) return obj.error.trim();
+    if (typeof obj.details === 'string' && obj.details.trim()) return obj.details.trim();
+  }
+  return fallback;
+};
+
 export default function LoginScreen() {
   const router = useRouter();
   const [email, setEmail] = useState('');
@@ -27,7 +39,7 @@ export default function LoginScreen() {
     try {
       const response = await fetch(`${getAuthApiBaseUrl()}/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ identifier: email.trim(), password }) });
       const result = await response.json().catch(() => ({}));
-      if (!response.ok) return setError(result?.message || result?.error || 'تعذر تسجيل الدخول. حاول مرة أخرى.');
+      if (!response.ok) return setError(toErrorString(result?.message ?? result?.error, 'تعذر تسجيل الدخول. حاول مرة أخرى.'));
 
       const token = result?.data?.accessToken || result?.data?.refreshToken || 'dummy-token';
       await AsyncStorage.setItem(AUTH_TOKEN_KEY, token);

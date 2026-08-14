@@ -6,6 +6,7 @@ import { getAuthApiBaseUrl } from '../services/auth-api';
 import Svg, { Path } from 'react-native-svg';
 
 const HERO_IMAGE = 'https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=1000&q=85';
+const PAGE_BACKGROUND = require('../../assets/images/auth/islamic-auth-background.png');
 
 const formatRemainingTime = (endTime?: string, currentTime = Date.now()) => {
   if (!endTime) return '--:--:--';
@@ -146,6 +147,8 @@ export default function ActivityDetailsScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <ImageBackground source={PAGE_BACKGROUND} resizeMode="cover" style={styles.pageBackground}>
+        <View pointerEvents="none" style={styles.pageOverlay} />
       <ScrollView contentContainerStyle={[styles.scrollContent, { paddingTop: 8 + insets.top }]} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <Pressable onPress={() => router.back()} hitSlop={10} style={styles.backButton}>
@@ -259,13 +262,16 @@ export default function ActivityDetailsScreen() {
           </Pressable>
         </View>
       </ScrollView>
+      </ImageBackground>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#1a0e14' },
-  scrollContent: { paddingBottom: 20, backgroundColor: '#1a0e14' },
+  pageBackground: { flex: 1 },
+  pageOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(20, 4, 10, 0.45)' },
+  scrollContent: { paddingBottom: 20 },
   header: { height: 50, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16 },
   backButton: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center' },
   backIcon: { color: '#f5e6d3', fontSize: 31, lineHeight: 31, fontWeight: '300' },

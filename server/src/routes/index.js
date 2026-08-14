@@ -11,6 +11,7 @@ const theorySectionRoutes = require('./theorySection.routes');
 const practicalStepRoutes = require('./practicalStep.routes');
 const adminRoutes = require('./admin.routes');
 const prayerWheelEventRoutes = require('./prayerWheelEvent.routes');
+const adhanRoutes = require('./adhan.routes');
 
 const router = express.Router();
 
@@ -26,5 +27,6 @@ router.use('/theory-sections', theorySectionRoutes);
 router.use('/practical-steps', practicalStepRoutes);
 router.use('/admin', adminRoutes);
 router.use('/prayer-wheel-events', prayerWheelEventRoutes);
+router.use('/adhan', adhanRoutes);
 
 module.exports = router;

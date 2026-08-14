@@ -1,10 +1,13 @@
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ScrollView, Text, View, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
+import { ScrollView, Text, View, StyleSheet, Pressable, ActivityIndicator, ImageBackground } from 'react-native';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { getAuthApiBaseUrl } from '../services/auth-api';
 import { generateDailyWheel, loadPrayerWheelEventsConfig } from '../services/prayer-wheel.service';
 import { PrayerService } from '../services/prayer.service';
+import { goBackOrHome } from '../utils/navigation';
+
+const PAGE_BACKGROUND = require('../../assets/images/auth/islamic-auth-background.png');
 
 type WorshipItem = {
   id: number | string;
@@ -80,7 +83,7 @@ export default function WorshipsScreen() {
   const [worships, setWorships] = useState<WorshipItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedWorshipId, setSelectedWorshipId] = useState<number | string | null>(null);
+  const [selectedWorshipKey, setSelectedWorshipKey] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -165,8 +168,10 @@ export default function WorshipsScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
+      <ImageBackground source={PAGE_BACKGROUND} resizeMode="cover" style={styles.pageBackground}>
+        <View pointerEvents="none" style={styles.pageOverlay} />
       <ScrollView contentContainerStyle={styles.content}>
-        <Pressable style={styles.backButton} onPress={() => router.back()}>
+        <Pressable style={styles.backButton} onPress={goBackOrHome}>
           <Text style={styles.backText}>‹</Text>
         </Pressable>
 
@@ -186,16 +191,17 @@ export default function WorshipsScreen() {
         ) : (
           <View style={styles.list}>
             {worships.map((item, index) => {
+              const itemKey = `${item.id ?? item.name ?? item.title ?? 'worship'}-${index}`;
               const label = item.title || item.name || `العبادة ${index + 1}`;
               const displayTime = item.computedTime ? item.computedTime : item.time ?? null;
-              const isSelected = selectedWorshipId === item.id;
+              const isSelected = selectedWorshipKey === itemKey;
               const countdownText = isSelected ? formatCountdown(item.computedEndTime, now) : null;
 
               return (
                 <Pressable
-                  key={item.id ?? `${label}-${index}`}
+                  key={itemKey}
                   style={[styles.itemRow, isSelected && styles.itemRowSelected]}
-                  onPress={() => setSelectedWorshipId(isSelected ? null : item.id)}
+                  onPress={() => setSelectedWorshipKey(isSelected ? null : itemKey)}
                 >
                   <View style={styles.indexWrap}>
                     <Text style={styles.index}>{index + 1}</Text>
@@ -236,12 +242,15 @@ export default function WorshipsScreen() {
           </View>
         )}
       </ScrollView>
+      </ImageBackground>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#1a0e14' },
+  pageBackground: { flex: 1 },
+  pageOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(20, 4, 10, 0.48)' },
   content: { flexGrow: 1, padding: 18 },
   backButton: {
     width: 36,

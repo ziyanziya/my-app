@@ -6,11 +6,6 @@ export default function SplashScreen() {
   return (
     <AuthShell>
       <View style={styles.topSection}>
-        <View style={styles.logoShell}>
-          <View style={styles.logoCircle}>
-            <Text style={styles.logoLetter}>S</Text>
-          </View>
-        </View>
         <Text style={styles.title}>صراط</Text>
         <Text style={styles.subtitle}>رحلة يومية نحو التركيز والخشوع.</Text>
       </View>
@@ -48,26 +43,6 @@ const styles = StyleSheet.create({
   topSection: {
     flex: 1,
     justifyContent: 'center',
-  },
-  logoShell: {
-    alignItems: 'center',
-    marginBottom: 28,
-  },
-  logoCircle: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: '#442b3d',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#fff',
-    shadowOpacity: 0.12,
-    shadowRadius: 20,
-  },
-  logoLetter: {
-    color: '#f7e7d0',
-    fontSize: 48,
-    fontWeight: '800',
   },
   title: {
     fontSize: 42,

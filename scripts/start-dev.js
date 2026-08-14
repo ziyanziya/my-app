@@ -4,9 +4,14 @@ const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 const processes = [];
 
 function run(args) {
+  // Expo suppresses the interactive QR code whenever CI=true is inherited
+  // from a terminal or IDE. Development runs must stay interactive.
+  const childEnv = { ...process.env };
+  delete childEnv.CI;
   const child = spawn(npmCommand, args, {
     stdio: 'inherit',
     shell: process.platform === 'win32',
+    env: childEnv,
   });
   processes.push(child);
   child.on('exit', (code) => {

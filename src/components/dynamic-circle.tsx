@@ -1,8 +1,8 @@
 import { useMemo } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import Svg, { Circle, G, Path, Defs, LinearGradient, Stop, Line, Text as SvgText } from 'react-native-svg';
+import Svg, { Circle, G, Defs, LinearGradient, Stop, Line, Text as SvgText } from 'react-native-svg';
 
-const CIRCLE_SIZE = 340;
+const CIRCLE_SIZE = 360;
 const CENTER = CIRCLE_SIZE / 2;
 const OUTER_RADIUS = 130;
 const INNER_RADIUS = OUTER_RADIUS * 0.55; // 55% of outer radius
@@ -80,11 +80,11 @@ export function DynamicCircle({
       <View style={styles.circleContainer}>
         <Svg width={CIRCLE_SIZE} height={CIRCLE_SIZE} viewBox={`0 0 ${CIRCLE_SIZE} ${CIRCLE_SIZE}`}>
           <Defs>
-            {/* Gold gradient for outer ring */}
+            {/* Gold gradient for outer rim */}
             <LinearGradient id="goldGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-              <Stop offset="0%" stopColor="#d4af37" />
-              <Stop offset="50%" stopColor="#c9956f" />
-              <Stop offset="100%" stopColor="#a68555" />
+              <Stop offset="0%" stopColor="#f5d060" />
+              <Stop offset="50%" stopColor="#d4a843" />
+              <Stop offset="100%" stopColor="#c9956f" />
             </LinearGradient>
 
             {/* Center gradient */}
@@ -94,25 +94,41 @@ export function DynamicCircle({
             </LinearGradient>
           </Defs>
 
-          {/* Outer circle with golden ring */}
-          <Circle
-            cx={CENTER}
-            cy={CENTER}
-            r={OUTER_RADIUS + 3}
-            fill="none"
-            stroke="url(#goldGradient)"
-            strokeWidth="2"
-            opacity="0.8"
-          />
+          {/* ══ GOLDEN SHADOW GLOW — stacked rings radiating outward ══ */}
+          {/* Layer 1 — widest, most transparent */}
+          <Circle cx={CENTER} cy={CENTER} r={OUTER_RADIUS + 14}
+            fill="none" stroke="#c8860a" strokeWidth="10" opacity="0.07" />
+          {/* Layer 2 */}
+          <Circle cx={CENTER} cy={CENTER} r={OUTER_RADIUS + 9}
+            fill="none" stroke="#d49520" strokeWidth="9" opacity="0.13" />
+          {/* Layer 3 */}
+          <Circle cx={CENTER} cy={CENTER} r={OUTER_RADIUS + 5}
+            fill="none" stroke="#e0aa28" strokeWidth="7" opacity="0.22" />
+          {/* Layer 4 */}
+          <Circle cx={CENTER} cy={CENTER} r={OUTER_RADIUS + 2}
+            fill="none" stroke="#edbf30" strokeWidth="5" opacity="0.35" />
+          {/* Layer 5 — closest to rim, most opaque */}
+          <Circle cx={CENTER} cy={CENTER} r={OUTER_RADIUS + 0.5}
+            fill="none" stroke="#f5cf40" strokeWidth="3" opacity="0.50" />
 
-          {/* Main circle background */}
+          {/* ── Outer rim — thin crisp golden border ── */}
           <Circle
             cx={CENTER}
             cy={CENTER}
             r={OUTER_RADIUS}
+            fill="none"
+            stroke="url(#goldGradient)"
+            strokeWidth="0.8"
+            opacity="1"
+          />
+
+          {/* ── Main circle background ── */}
+          <Circle
+            cx={CENTER}
+            cy={CENTER}
+            r={OUTER_RADIUS - 0.5}
             fill="#f5ede0"
-            stroke="#e8dcc8"
-            strokeWidth="1"
+            stroke="none"
           />
 
           {/* Segment dividers */}
@@ -283,6 +299,12 @@ const styles = StyleSheet.create({
     height: CIRCLE_SIZE + 40,
     justifyContent: 'center',
     alignItems: 'center',
+    // Native golden drop-shadow on mobile
+    shadowColor: '#d4a830',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.55,
+    shadowRadius: 18,
+    elevation: 12,
   },
 
   // Pointer at top

@@ -1,4 +1,5 @@
 import { CalculationMethod, Coordinates, HighLatitudeRule, PrayerTimes } from 'adhan';
+import { Platform } from 'react-native';
 
 const PRAYER_STORAGE_KEY = 'prayerTimesData';
 
@@ -89,11 +90,12 @@ export class PrayerService {
       // Continue to IP-based fallback.
     }
 
-    try {
-      return await getIpLocation();
-    } catch {
-      return defaultCoordinates;
-    }
+    // A third-party IP lookup is unreliable in browsers and may be blocked by
+    // extensions/CORS. The default is preferable to surfacing a runtime error.
+    if (Platform.OS === 'web') return defaultCoordinates;
+
+    try { return await getIpLocation(); }
+    catch { return defaultCoordinates; }
   }
 
   static getPrayerTimes(date: Date, latitude: number, longitude: number): PrayerTimesResult {

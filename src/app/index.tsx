@@ -2,12 +2,14 @@
 import { useFonts, Amiri_400Regular } from '@expo-google-fonts/amiri';
 import {
   View,
+  Image,
   Text,
   StyleSheet,
   useWindowDimensions,
   StatusBar,
   ScrollView,
   Animated,
+  ImageBackground,
   TouchableOpacity,
   Pressable,
   Modal,
@@ -25,9 +27,13 @@ import Svg, {
   RadialGradient,
   Stop,
   G,
+  SvgUri,
 } from 'react-native-svg';
 import type { PrayerTimesResult } from '../services/prayer.service';
 import type { DailyWheelItem } from '../services/prayer-wheel.service';
+
+const homeBackground = require('../../assets/images/auth/islamic-auth-background.png');
+const homeLogo = require('../../assets/images/auth/elsirat-logo-final-transparent.png');
 type TimeCardProps = {
   currentTime: Date;
 };
@@ -447,6 +453,10 @@ const PrayerCircle = ({
 
         {/* Outer ivory halo */}
         <Circle cx={cx} cy={cy} r={outerRadius + 6} fill="rgba(247,242,234,0.18)" />
+        {/* Gold outer frame */}
+        <Circle cx={cx} cy={cy} r={outerRadius + 10} fill="none" stroke="rgba(255, 214, 112, 0.20)" strokeWidth={8} />
+        <Circle cx={cx} cy={cy} r={outerRadius + 7} fill="none" stroke="url(#goldAccent)" strokeWidth={3.2} />
+        <Circle cx={cx} cy={cy} r={outerRadius + 2.8} fill="none" stroke="rgba(255, 244, 190, 0.78)" strokeWidth={1} />
         <Circle cx={cx} cy={cy} r={outerRadius + 2} fill="url(#ivoryGlow)" />
 
         {/* Segment ring */}
@@ -814,9 +824,9 @@ const ProgressCard = () => {
 const BottomNav = ({ activeTab, onTabChange }: BottomNavProps) => {
   const tabs = [
     { id: 'home', icon: '🏠', label: 'الرئيسية' },
-    { id: 'achievements', icon: '⭐', label: 'الإنجازات' },
-    { id: 'favorites', icon: '❤️', label: 'المفضلة' },
-    { id: 'calendar', icon: '📅', label: 'التقويم' },
+    { id: 'qibla', icon: '🧭', label: 'القبلة' },
+    { id: 'worships', icon: '📿', label: 'العبادات' },
+    { id: 'prayers', icon: '🕌', label: 'الصلوات والأذان' },
     { id: 'more', icon: '⋯', label: 'المزيد' },
   ];
 
@@ -889,6 +899,11 @@ export default function PrayerHomeScreen() {
   const handleTabChange = (tabId: string) => {
     if (tabId === 'more') {
       setIsMoreMenuVisible((current) => !current);
+      return;
+    }
+
+    if (tabId === 'qibla' || tabId === 'worships' || tabId === 'prayers') {
+      router.push(`/${tabId}`);
       return;
     }
 
@@ -973,8 +988,11 @@ export default function PrayerHomeScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#1a0e14" />
+      <ImageBackground source={homeBackground} resizeMode="cover" style={styles.pageBackground}>
+        <View pointerEvents="none" style={styles.pageOverlay} />
 
       <View style={styles.header}>
+        <View style={styles.headerLogo}><Image source={homeLogo} style={{ width: 34, height: 34 }} resizeMode="contain" accessibilityLabel="شعار الصراط" /></View>
         <TouchableOpacity
           style={styles.menuBtn}
           activeOpacity={0.7}
@@ -1036,42 +1054,7 @@ export default function PrayerHomeScreen() {
         <PrayerTimesCard prayerTimes={prayerTimes} error={prayerError} />
         <ProgressCard />
       </ScrollView>
-
-      <BottomNav activeTab={activeTab} onTabChange={handleTabChange} />
-
-      <Modal
-        transparent
-        visible={isMoreMenuVisible}
-        animationType="fade"
-        onRequestClose={() => setIsMoreMenuVisible(false)}
-      >
-        <Pressable style={styles.moreOverlay} onPress={() => setIsMoreMenuVisible(false)}>
-          <View style={styles.moreMenuCard}>
-            <TouchableOpacity
-              style={styles.moreMenuItem}
-              activeOpacity={0.8}
-              onPress={() => {
-                setIsMoreMenuVisible(false);
-                router.push('/qibla');
-              }}
-            >
-              <Text style={styles.moreMenuItemIcon}>🧭</Text>
-              <Text style={styles.moreMenuItemLabel}>القبلة</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.moreMenuItem}
-              activeOpacity={0.8}
-              onPress={() => {
-                setIsMoreMenuVisible(false);
-                router.push('/worships');
-              }}
-            >
-              <Text style={styles.moreMenuItemIcon}>📿</Text>
-              <Text style={styles.moreMenuItemLabel}>العبادات</Text>
-            </TouchableOpacity>
-          </View>
-        </Pressable>
-      </Modal>
+      </ImageBackground>
 
       <Modal
         transparent
@@ -1137,6 +1120,8 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#1a0e14',
   },
+  pageBackground: { flex: 1 },
+  pageOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(20, 4, 10, 0.48)' },
   scrollArea: {
     flex: 1,
   },
@@ -1152,6 +1137,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 12,
     paddingBottom: 16,
+  },
+  headerLogo: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 3,
   },
   menuBtn: { padding: 8 },
   menuIcon: { fontSize: 22, color: '#f5e6d3' },

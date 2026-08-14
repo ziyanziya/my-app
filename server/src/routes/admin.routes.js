@@ -16,7 +16,11 @@ const storage = multer.diskStorage({
 		cb(null, safe);
 	},
 });
-const upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 } });
+const upload = multer({
+  storage,
+  fileFilter: (_req, file, cb) => cb(null, file.mimetype.startsWith('audio/')),
+  limits: { fileSize: 10 * 1024 * 1024 },
+});
 
 const router = express.Router();
 router.use(authenticate, requireRole('admin'));
@@ -27,6 +31,7 @@ router.patch('/users/:id(\\d+)', controller.updateUser);
 // Adhan management
 router.get('/adhan', adhanController.list);
 router.post('/adhan', upload.single('file'), adhanController.upload);
+router.put('/adhan/:name', upload.single('file'), adhanController.update);
 router.delete('/adhan/:name', adhanController.remove);
 router.get('/adhan/settings', adhanController.getSettings);
 router.post('/adhan/settings', adhanController.saveSettings);

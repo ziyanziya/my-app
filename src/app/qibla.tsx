@@ -1,9 +1,12 @@
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ScrollView, Text, View, StyleSheet, Pressable, ActivityIndicator, Modal } from 'react-native';
+import { ScrollView, Text, View, StyleSheet, Pressable, ActivityIndicator, ImageBackground, Modal } from 'react-native';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { PrayerService } from '../services/prayer.service';
 import { useRef } from 'react';
+import { goBackOrHome } from '../utils/navigation';
+
+const PAGE_BACKGROUND = require('../../assets/images/auth/islamic-auth-background.png');
 
 const getExpoLocation = async () => {
   try {
@@ -397,8 +400,10 @@ export default function QiblaScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
+      <ImageBackground source={PAGE_BACKGROUND} resizeMode="cover" style={styles.pageBackground}>
+        <View pointerEvents="none" style={styles.pageOverlay} />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Pressable style={styles.backButton} onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="رجوع">
+        <Pressable style={styles.backButton} onPress={goBackOrHome} accessibilityRole="button" accessibilityLabel="رجوع">
           <Text style={styles.backText}>‹</Text>
         </Pressable>
 
@@ -493,12 +498,15 @@ export default function QiblaScreen() {
           </View>
         </Modal>
       </ScrollView>
+      </ImageBackground>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#1a0e14' },
+  pageBackground: { flex: 1 },
+  pageOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(20, 4, 10, 0.48)' },
   content: { flexGrow: 1, padding: 18, paddingBottom: 40 },
   backButton: {
     width: 36,

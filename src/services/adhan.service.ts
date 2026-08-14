@@ -5,13 +5,16 @@ import { getAuthApiBaseUrl } from './auth-api';
 let sound: Audio.Sound | null = null;
 let timers: Array<ReturnType<typeof setTimeout>> = [];
 
+export type PrayerKey = 'fajr' | 'dhuhr' | 'asr' | 'maghrib' | 'isha';
+export type AdhanPreferences = { enabled: boolean; selections: Partial<Record<PrayerKey, string>> };
+
 async function fetchServerAdhanUrl(prayerKey?: 'fajr' | 'default') {
   try {
     const base = getAuthApiBaseUrl();
-    const settingsResp = await fetch(`${base}/admin/adhan/settings`);
+    const settingsResp = await fetch(`${base}/adhan/settings`);
     const settingsBody = await settingsResp.json().catch(() => null);
     const settings = settingsBody?.data || { fajrFile: null, fajrEnabled: false };
-    const filesResp = await fetch(`${base}/admin/adhan`);
+    const filesResp = await fetch(`${base}/adhan`);
     const filesBody = await filesResp.json().catch(() => null);
     const files = filesBody?.data || [];
     if (prayerKey === 'fajr' && settings.fajrEnabled && settings.fajrFile) {
@@ -41,8 +44,11 @@ export async function loadAdhanSoundAsync(uri?: any) {
       if (serverUrl) {
         await s.loadAsync({ uri: serverUrl });
       } else {
-        // Placeholder: add a licensed adhan file at src/assets/adhan_placeholder.mp3
-        await s.loadAsync(require('../assets/adhan_placeholder.mp3'));
+        // Audio is optional until an administrator uploads an adhan file.
+        // Do not use a static `require` here: Metro resolves it at bundle time,
+        // so a missing optional asset prevents the entire app from loading.
+        console.warn('No adhan audio file is available yet.');
+        return;
       }
     }
 
@@ -64,6 +70,14 @@ export async function playAdhan() {
   }
 }
 
+export async function stopAdhan() {
+  try {
+    if (sound) await sound.stopAsync();
+  } catch (e) {
+    console.warn('stopAdhan error', e);
+  }
+}
+
 export function stopAdhanScheduler() {
   try {
     timers.forEach((t) => clearTimeout(t));
@@ -72,13 +86,18 @@ export function stopAdhanScheduler() {
   }
 }
 
-export function startAdhanScheduler(onPlay?: () => void) {
+export function startAdhanScheduler(preferencesOrOnPlay?: AdhanPreferences | (() => void), optionalOnPlay?: () => void) {
   stopAdhanScheduler();
+  const preferences = typeof preferencesOrOnPlay === 'function' || !preferencesOrOnPlay
+    ? { enabled: true, selections: {} }
+    : preferencesOrOnPlay;
+  const onPlay = typeof preferencesOrOnPlay === 'function' ? preferencesOrOnPlay : optionalOnPlay;
+  if (!preferences.enabled) return;
 
   (async () => {
     try {
       const times = await PrayerService.getTodayPrayerTimes();
-      const prayers = [
+      const prayers: Array<{ name: PrayerKey; time: Date }> = [
         { name: 'fajr', time: times.fajr },
         { name: 'dhuhr', time: times.dhuhr },
         { name: 'asr', time: times.asr },
@@ -93,13 +112,9 @@ export function startAdhanScheduler(onPlay?: () => void) {
         const delay = ts - now;
         const timer = setTimeout(async () => {
           try {
-            // load prayer-specific sound if available (fajr special)
-            try { await loadAdhanSoundAsync(p.name === 'fajr' ? undefined : undefined); } catch {}
-            // if fajr, attempt to load fajr-specific url
-            if (p.name === 'fajr') {
-              const fajrUrl = await fetchServerAdhanUrl('fajr');
-              if (fajrUrl) await loadAdhanSoundAsync(fajrUrl);
-            }
+            const selectedUrl = preferences.selections[p.name]
+              || await fetchServerAdhanUrl(p.name === 'fajr' ? 'fajr' : 'default');
+            await loadAdhanSoundAsync(selectedUrl);
             await playAdhan();
             if (onPlay) onPlay();
           } catch (e) {
@@ -117,6 +132,7 @@ export function startAdhanScheduler(onPlay?: () => void) {
 export default {
   loadAdhanSoundAsync,
   playAdhan,
+  stopAdhan,
   startAdhanScheduler,
   stopAdhanScheduler,
 };
