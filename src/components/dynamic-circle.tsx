@@ -1,36 +1,50 @@
 import { useMemo } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import Svg, { Circle, G, Defs, LinearGradient, Stop, Line, Text as SvgText } from 'react-native-svg';
+import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Svg, { Circle, Defs, G, LinearGradient, Line, Stop, Text as SvgText } from 'react-native-svg';
 
-const CIRCLE_SIZE = 360;
-const CENTER = CIRCLE_SIZE / 2;
-const OUTER_RADIUS = 130;
-const INNER_RADIUS = OUTER_RADIUS * 0.55; // 55% of outer radius
-const LABEL_RADIUS = OUTER_RADIUS * 0.70;
-const SEGMENT_COUNT = 8;
-const ANGLE_STEP = 360 / SEGMENT_COUNT;
+// ─── Layout constants ──────────────────────────────────────────────
+const CIRCLE_SIZE   = 320;          // SVG canvas size
+const VIEWBOX_PAD   = 30;           // extra padding so glow isn't clipped
+const VB            = CIRCLE_SIZE + VIEWBOX_PAD * 2;   // viewBox size = 380
+const C             = VB / 2;       // center = 190
+const OUTER_R       = 130;          // wheel radius
+const INNER_R       = OUTER_R * 0.55;
+const LABEL_R       = OUTER_R * 0.70;
+const SEG           = 8;
+const STEP          = 360 / SEG;
 
-// Task data with icons
+// ─── Static segment data ───────────────────────────────────────────
 const TASKS_DATA = [
-  { title: 'الفجر', time: '04:15', icon: '🌙' },
-  { title: 'أذكار الصباح', time: '06:00', icon: '☀️' },
-  { title: 'قراءة القرآن', time: '08:00', icon: '📖' },
+  { title: 'الفجر',           time: '04:15', icon: '🌙' },
+  { title: 'أذكار الصباح',   time: '06:00', icon: '☀️' },
+  { title: 'قراءة القرآن',   time: '08:00', icon: '📖' },
   { title: 'أذكار بعد الصلاة', time: '08:30', icon: '🕌' },
-  { title: 'سنة الضحى', time: '09:30', icon: '☀️' },
-  { title: 'الظهر', time: '12:30', icon: '🕌' },
-  { title: 'أذكار العصر', time: '15:30', icon: '📖' },
-  { title: 'المغرب', time: '18:30', icon: '🌙' },
+  { title: 'سنة الضحى',      time: '09:30', icon: '☀️' },
+  { title: 'الظهر',           time: '12:30', icon: '🕌' },
+  { title: 'أذكار العصر',    time: '15:30', icon: '📖' },
+  { title: 'المغرب',          time: '18:30', icon: '🌙' },
 ];
 
+// ─── Golden glow rings — drawn OUTSIDE the main wheel ─────────────
+// Each ring: { extraR, strokeW, opacity }
+// They radiate outward from the rim edge
+const GLOW_RINGS = [
+  { dr: 1,  sw: 4,  op: 0.70 },   // closest — brightest
+  { dr: 5,  sw: 6,  op: 0.45 },
+  { dr: 10, sw: 8,  op: 0.25 },
+  { dr: 16, sw: 10, op: 0.13 },
+  { dr: 23, sw: 12, op: 0.06 },   // farthest — most diffuse
+];
 
+// ─────────────────────────────────────────────────────────────────
 export function DynamicCircle({
   tasks = [],
   currentTask,
   onPressCurrent,
   completedLabel = 'عادات مكتملة',
-  remainingLabel = 'عادات متبقية',
-  pointsLabel = 'نقطة',
-  points = 0,
+  remainingLabel  = 'عادات متبقية',
+  pointsLabel     = 'نقطة',
+  points          = 0,
 }: {
   tasks?: { title: string; scheduled_at: string; completed?: boolean; icon?: string }[];
   currentTask?: { title: string; scheduled_at: string };
@@ -42,149 +56,131 @@ export function DynamicCircle({
 }) {
   const completedCount = useMemo(() => tasks.filter(t => t.completed).length, [tasks]);
   const remainingCount = useMemo(() => tasks.filter(t => !t.completed).length, [tasks]);
-  const progress = useMemo(() => 
-    tasks.length ? Math.round((completedCount / tasks.length) * 100) : 0, 
-    [completedCount, tasks.length]
+  const progress       = useMemo(
+    () => (tasks.length ? Math.round((completedCount / tasks.length) * 100) : 0),
+    [completedCount, tasks.length],
   );
 
-  // Generate segment positions
-  const segments = useMemo(() => {
-    return TASKS_DATA.map((task, index) => {
-      const angle = (index * ANGLE_STEP) - 90;
-      const radians = (angle * Math.PI) / 180;
-      
-      // Position for labels (70% of outer radius)
-      const labelX = CENTER + LABEL_RADIUS * Math.cos(radians);
-      const labelY = CENTER + LABEL_RADIUS * Math.sin(radians);
-      
-      // Position for icons (85% of outer radius)
-      const iconX = CENTER + OUTER_RADIUS * 0.85 * Math.cos(radians);
-      const iconY = CENTER + OUTER_RADIUS * 0.85 * Math.sin(radians);
-      
+  const segments = useMemo(() =>
+    TASKS_DATA.map((task, i) => {
+      const angle   = i * STEP - 90;
+      const rad     = (angle * Math.PI) / 180;
       return {
         ...task,
         angle,
-        labelX,
-        labelY,
-        iconX,
-        iconY,
-        isCompleted: tasks[index]?.completed ?? false,
+        labelX: C + LABEL_R    * Math.cos(rad),
+        labelY: C + LABEL_R    * Math.sin(rad),
+        iconX:  C + OUTER_R * 0.85 * Math.cos(rad),
+        iconY:  C + OUTER_R * 0.85 * Math.sin(rad),
+        divX:   C + OUTER_R    * Math.cos(rad),
+        divY:   C + OUTER_R    * Math.sin(rad),
+        isCompleted: tasks[i]?.completed ?? false,
       };
-    });
-  }, [tasks]);
+    }),
+  [tasks]);
 
   const displayTask = currentTask || tasks[0];
 
   return (
     <View style={styles.wrapper}>
+
+      {/* ── Wheel container with native shadow ── */}
       <View style={styles.circleContainer}>
-        <Svg width={CIRCLE_SIZE} height={CIRCLE_SIZE} viewBox={`0 0 ${CIRCLE_SIZE} ${CIRCLE_SIZE}`}>
+        <Svg
+          width={VB}
+          height={VB}
+          viewBox={`0 0 ${VB} ${VB}`}
+        >
           <Defs>
-            {/* Gold gradient for outer rim */}
-            <LinearGradient id="goldGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-              <Stop offset="0%" stopColor="#f5d060" />
-              <Stop offset="50%" stopColor="#d4a843" />
-              <Stop offset="100%" stopColor="#c9956f" />
+            {/* Rim gold gradient */}
+            <LinearGradient id="rimGold" x1="0%" y1="0%" x2="100%" y2="100%">
+              <Stop offset="0%"   stopColor="#f7dc6f" />
+              <Stop offset="40%"  stopColor="#d4a843" />
+              <Stop offset="100%" stopColor="#b8892f" />
             </LinearGradient>
 
-            {/* Center gradient */}
-            <LinearGradient id="centerGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-              <Stop offset="0%" stopColor="#4a2f5c" />
+            {/* Center dark gradient */}
+            <LinearGradient id="centerGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <Stop offset="0%"   stopColor="#4a2f5c" />
               <Stop offset="100%" stopColor="#2b1a35" />
             </LinearGradient>
           </Defs>
 
-          {/* ══ GOLDEN SHADOW GLOW — stacked rings radiating outward ══ */}
-          {/* Layer 1 — widest, most transparent */}
-          <Circle cx={CENTER} cy={CENTER} r={OUTER_RADIUS + 14}
-            fill="none" stroke="#c8860a" strokeWidth="10" opacity="0.07" />
-          {/* Layer 2 */}
-          <Circle cx={CENTER} cy={CENTER} r={OUTER_RADIUS + 9}
-            fill="none" stroke="#d49520" strokeWidth="9" opacity="0.13" />
-          {/* Layer 3 */}
-          <Circle cx={CENTER} cy={CENTER} r={OUTER_RADIUS + 5}
-            fill="none" stroke="#e0aa28" strokeWidth="7" opacity="0.22" />
-          {/* Layer 4 */}
-          <Circle cx={CENTER} cy={CENTER} r={OUTER_RADIUS + 2}
-            fill="none" stroke="#edbf30" strokeWidth="5" opacity="0.35" />
-          {/* Layer 5 — closest to rim, most opaque */}
-          <Circle cx={CENTER} cy={CENTER} r={OUTER_RADIUS + 0.5}
-            fill="none" stroke="#f5cf40" strokeWidth="3" opacity="0.50" />
+          {/* ═══════════════════════════════════════════════
+              GOLDEN GLOW — rings expanding outward from rim
+              All rendered BEFORE the main wheel fill so
+              the wheel sits on top and clips naturally.
+          ═══════════════════════════════════════════════ */}
+          {GLOW_RINGS.map(({ dr, sw, op }, i) => (
+            <Circle
+              key={`glow-${i}`}
+              cx={C}
+              cy={C}
+              r={OUTER_R + dr}
+              fill="none"
+              stroke="#d4aa22"
+              strokeWidth={sw}
+              opacity={op}
+            />
+          ))}
 
-          {/* ── Outer rim — thin crisp golden border ── */}
+          {/* ── Rim — thin crisp golden border ── */}
           <Circle
-            cx={CENTER}
-            cy={CENTER}
-            r={OUTER_RADIUS}
+            cx={C} cy={C} r={OUTER_R}
             fill="none"
-            stroke="url(#goldGradient)"
-            strokeWidth="0.8"
-            opacity="1"
+            stroke="url(#rimGold)"
+            strokeWidth={0.8}
+            opacity={1}
           />
 
-          {/* ── Main circle background ── */}
+          {/* ── Main wheel fill ── */}
           <Circle
-            cx={CENTER}
-            cy={CENTER}
-            r={OUTER_RADIUS - 0.5}
+            cx={C} cy={C} r={OUTER_R - 0.4}
             fill="#f5ede0"
             stroke="none"
           />
 
-          {/* Segment dividers */}
-          {segments.map((seg, i) => {
-            const angle = seg.angle;
-            const radians = (angle * Math.PI) / 180;
-            const x1 = CENTER + OUTER_RADIUS * Math.cos(radians);
-            const y1 = CENTER + OUTER_RADIUS * Math.sin(radians);
-            return (
-              <Line
-                key={`divider-${i}`}
-                x1={CENTER}
-                y1={CENTER}
-                x2={x1}
-                y2={y1}
-                stroke="#d4c4b0"
-                strokeWidth="0.5"
-                opacity="0.4"
-              />
-            );
-          })}
+          {/* ── Segment dividers ── */}
+          {segments.map((seg, i) => (
+            <Line
+              key={`div-${i}`}
+              x1={C}     y1={C}
+              x2={seg.divX} y2={seg.divY}
+              stroke="#d4c4b0"
+              strokeWidth={0.5}
+              opacity={0.4}
+            />
+          ))}
 
-          {/* Icons for each segment */}
+          {/* ── Emoji icons ── */}
           {segments.map((seg, i) => (
             <SvgText
-              key={`icon-${i}`}
-              x={seg.iconX}
-              y={seg.iconY + 5}
+              key={`ico-${i}`}
+              x={seg.iconX} y={seg.iconY + 5}
               textAnchor="middle"
-              fontSize="24"
+              fontSize={22}
               fontWeight="bold"
             >
               {seg.icon}
             </SvgText>
           ))}
 
-          {/* Labels for each segment - STRAIGHT (not rotated) */}
+          {/* ── Segment labels ── */}
           {segments.map((seg, i) => (
-            <G key={`label-${i}`}>
-              {/* Title */}
+            <G key={`lbl-${i}`}>
               <SvgText
-                x={seg.labelX}
-                y={seg.labelY - 8}
+                x={seg.labelX} y={seg.labelY - 8}
                 textAnchor="middle"
-                fontSize="11"
+                fontSize={10.5}
                 fontWeight="700"
                 fill="#3a2a35"
               >
                 {seg.title}
               </SvgText>
-              {/* Time */}
               <SvgText
-                x={seg.labelX}
-                y={seg.labelY + 8}
+                x={seg.labelX} y={seg.labelY + 7}
                 textAnchor="middle"
-                fontSize="10"
+                fontSize={9.5}
                 fontWeight="600"
                 fill="#8b7355"
               >
@@ -193,62 +189,33 @@ export function DynamicCircle({
             </G>
           ))}
 
-          {/* Center circle with gradient */}
+          {/* ── Center disc ── */}
           <Circle
-            cx={CENTER}
-            cy={CENTER}
-            r={INNER_RADIUS}
-            fill="url(#centerGradient)"
+            cx={C} cy={C} r={INNER_R}
+            fill="url(#centerGrad)"
             stroke="#d4af37"
-            strokeWidth="1.5"
-            opacity="0.9"
+            strokeWidth={1.2}
+            opacity={0.95}
           />
 
-          {/* Crescent moon - white elegant */}
-          <SvgText
-            x={CENTER}
-            y={CENTER - 12}
-            textAnchor="middle"
-            fontSize="36"
-            fill="#ffffff"
-            fontWeight="900"
-          >
+          {/* ── Crescent & text ── */}
+          <SvgText x={C} y={C - 12} textAnchor="middle" fontSize={34} fill="#ffffff" fontWeight="900">
             ☾
           </SvgText>
-
-          {/* SIRAT text */}
-          <SvgText
-            x={CENTER}
-            y={CENTER + 12}
-            textAnchor="middle"
-            fontSize="16"
-            fontWeight="800"
-            fill="#d4af37"
-            letterSpacing="1"
-          >
+          <SvgText x={C} y={C + 12} textAnchor="middle" fontSize={15} fontWeight="800" fill="#d4af37" letterSpacing="1">
             صِراط
           </SvgText>
-
-          {/* SIRAT subtitle */}
-          <SvgText
-            x={CENTER}
-            y={CENTER + 28}
-            textAnchor="middle"
-            fontSize="9"
-            fill="#b8956f"
-            letterSpacing="2"
-            fontWeight="600"
-          >
+          <SvgText x={C} y={C + 27} textAnchor="middle" fontSize={8.5} fill="#b8956f" letterSpacing="2" fontWeight="600">
             S I R A T
           </SvgText>
         </Svg>
 
-        {/* Pointer at top */}
+        {/* Pointer */}
         <View style={styles.pointer} />
 
-        {/* Center touchable button */}
+        {/* Center tap */}
         <TouchableOpacity
-          style={styles.centerTouchable}
+          style={[styles.centerTouchable, { width: INNER_R * 1.8, height: INNER_R * 1.8, borderRadius: INNER_R }]}
           onPress={onPressCurrent}
           activeOpacity={0.7}
         >
@@ -256,7 +223,7 @@ export function DynamicCircle({
         </TouchableOpacity>
       </View>
 
-      {/* Current time card */}
+      {/* ── Time card ── */}
       <View style={styles.currentTimeCard}>
         <Text style={styles.currentTimeLabel}>الوقت الحالي</Text>
         <Text style={styles.currentTimeValue}>
@@ -264,7 +231,6 @@ export function DynamicCircle({
         </Text>
       </View>
 
-      {/* Today's progress section */}
       <Text style={styles.sectionTitle}>إنجازك اليوم</Text>
 
       <View style={styles.statsRow}>
@@ -293,43 +259,48 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginVertical: 20,
   },
+
+  // Native golden drop-shadow sits on this View
   circleContainer: {
     position: 'relative',
-    width: CIRCLE_SIZE + 20,
-    height: CIRCLE_SIZE + 40,
+    width: VB + 10,
+    height: VB + 20,
     justifyContent: 'center',
     alignItems: 'center',
-    // Native golden drop-shadow on mobile
-    shadowColor: '#d4a830',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.55,
-    shadowRadius: 18,
-    elevation: 12,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#c8960a',
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.75,
+        shadowRadius: 22,
+      },
+      android: {
+        elevation: 16,
+      },
+      web: {
+        // CSS box-shadow for web
+      } as object,
+    }),
   },
 
-  // Pointer at top
   pointer: {
     position: 'absolute',
-    top: 0,
+    top: 4,
     left: '50%',
-    marginLeft: -10,
+    marginLeft: -9,
     width: 0,
     height: 0,
-    borderLeftWidth: 8,
-    borderRightWidth: 8,
-    borderBottomWidth: 12,
+    borderLeftWidth: 7,
+    borderRightWidth: 7,
+    borderBottomWidth: 11,
     borderLeftColor: 'transparent',
     borderRightColor: 'transparent',
     borderBottomColor: '#d4af37',
     zIndex: 10,
   },
 
-  // Center touchable button
   centerTouchable: {
     position: 'absolute',
-    width: INNER_RADIUS * 1.8,
-    height: INNER_RADIUS * 1.8,
-    borderRadius: INNER_RADIUS,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -342,7 +313,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
 
-  // Current time card
   currentTimeCard: {
     width: '90%',
     backgroundColor: '#2b1a24',
@@ -350,7 +320,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 16,
     alignItems: 'center',
-    marginTop: 24,
+    marginTop: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
@@ -369,7 +339,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
 
-  // Section title
   sectionTitle: {
     color: '#f7e7d0',
     fontSize: 14,
@@ -380,7 +349,6 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
 
-  // Stats row
   statsRow: {
     width: '90%',
     flexDirection: 'row',
@@ -413,7 +381,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 
-  // Progress badge
   progressBadge: {
     width: 56,
     height: 56,
@@ -423,9 +390,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     shadowColor: '#d4af37',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 4,
+    shadowOpacity: 0.30,
+    shadowRadius: 6,
+    elevation: 5,
   },
   progressValue: {
     color: '#2b1a24',

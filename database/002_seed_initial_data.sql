@@ -4,7 +4,9 @@ USE `elsirat_db`;
 INSERT INTO `levels` (`id`,`slug`,`name`,`min_points`,`badge_icon`,`description`,`rank`) VALUES
 (1,'beginner','مبتدئ',0,NULL,'المرحلة الأولى',1),
 (2,'committed','ملتزم',100,NULL,'المستوى الثاني',2),
-(3,'devout','تقي',500,NULL,'المستوى الثالث',3)
+(3,'devout','تقي',500,NULL,'المستوى الثالث',3),
+(4,'steadfast','ثابت',1500,NULL,'المستوى الرابع',4),
+(5,'radiant','مضيء',4000,NULL,'المستوى الخامس',5)
 ON DUPLICATE KEY UPDATE slug=VALUES(slug), name=VALUES(name), min_points=VALUES(min_points);
 
 -- Seed categories

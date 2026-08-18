@@ -9,7 +9,9 @@
     "dev": "nodemon --watch src --exec node src/server.js",
     "make-admin": "node scripts/make-admin.js",
     "reset-password": "node scripts/reset-password.js",
-    "create-admin": "node scripts/create-admin.js"
+    "create-admin": "node scripts/create-admin.js",
+    "backup-db": "node scripts/backup-db.js",
+    "restore-db": "node scripts/restore-db.js"
   },
   "dependencies": {
     "bcrypt": "^5.1.0",

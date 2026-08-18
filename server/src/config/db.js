@@ -10,6 +10,9 @@ const pool = mysql.createPool({
   waitForConnections: true,
   connectionLimit: config.DB_CONNECTION_LIMIT,
   queueLimit: 0,
+  // Fail a request promptly when MySQL is unreachable instead of leaving the
+  // admin-login request pending until the driver-level timeout expires.
+  connectTimeout: 10_000,
   dateStrings: false,
 });
 

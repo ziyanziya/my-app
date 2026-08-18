@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useFonts, Amiri_400Regular } from '@expo-google-fonts/amiri';
 import {
   View,
@@ -31,6 +31,7 @@ import Svg, {
 } from 'react-native-svg';
 import type { PrayerTimesResult } from '../services/prayer.service';
 import type { DailyWheelItem } from '../services/prayer-wheel.service';
+import { getAuthApiBaseUrl, fetchWithTimeout } from '../services/auth-api';
 
 const homeBackground = require('../../assets/images/auth/islamic-auth-background.png');
 const homeLogo = require('../../assets/images/auth/elsirat-logo-final-transparent.png');
@@ -605,6 +606,8 @@ const PrayerCircle = ({
       {wheelItems.map((item, index) => {
        const itemAngle = index * sliceAngle;
        const isSelected = selectedIndex === index;
+        // Keep lower-half labels readable
+        const shouldReverseTextDirection = Boolean(item.reverseTextDirection || index === 6);
        const indexDistance = selectedIndex === null
          ? 0
          : Math.min(Math.abs(index - selectedIndex), wheelItems.length - Math.abs(index - selectedIndex));
@@ -618,6 +621,7 @@ const PrayerCircle = ({
        const labelPos = polarToCartesian(cx, cy, labelRadius, itemAngle);
        const baseRotate = itemAngle + 90;
        const rotateAngle = itemAngle > 90 && itemAngle < 270 ? baseRotate + 180 : baseRotate;
+       const labelRotateAngle = !isSelected && shouldReverseTextDirection ? rotateAngle + 180 : rotateAngle;
        const remainingTime = isSelected && item.endTime
          ? formatRemainingTime(item.endTime, currentTime)
          : undefined;
@@ -634,10 +638,16 @@ const PrayerCircle = ({
              top: labelPos.y - (isSelected ? 38 : 18),
              alignItems: 'center',
              justifyContent: 'center',
-             transform: [{ rotate: `${rotateAngle}deg` }],
+             transform: [{ rotate: `${labelRotateAngle}deg` }],
            }}
          >
-           <View style={isSelected ? { transform: [{ rotate: `${-rotateAngle}deg` }] } : undefined}>
+           <View
+             style={
+               isSelected
+                 ? { transform: [{ rotate: `${-rotateAngle}deg` }] }
+                 : undefined
+             }
+           >
              <Text
                numberOfLines={2}
                adjustsFontSizeToFit
@@ -645,7 +655,6 @@ const PrayerCircle = ({
                style={[
                  circleStyles.sliceLabel,
                  isSelected && circleStyles.sliceLabelSelected,
-                 !isSelected && item.reverseTextDirection && circleStyles.sliceLabelReversed,
                ]}
              >
                {item.name}
@@ -790,8 +799,10 @@ const PrayerTimesCard = ({ prayerTimes, error }: { prayerTimes: PrayerTimesResul
   );
 };
 
-const ProgressCard = () => {
-  const progress = 0.7;
+const ProgressCard = ({ stats }: { stats: any }) => {
+  const dailyGoal = 100;
+  const dailyNour = stats ? stats.daily_awarded : 0;
+  const progress = Math.min(dailyNour / dailyGoal, 1);
   const circumference = 2 * Math.PI * 24;
   const strokeDashoffset = circumference * (1 - progress);
 
@@ -800,12 +811,16 @@ const ProgressCard = () => {
       <Text style={styles.progressLabel}>إنجازاتك اليوم</Text>
       <View style={styles.progressRow}>
         <View style={styles.statBox}>
-          <Text style={styles.statValue}>3</Text>
-          <Text style={styles.statLabel}>نقطة</Text>
+          <Text style={styles.statValue}>{dailyNour}</Text>
+          <Text style={styles.statLabel}>نور اليوم</Text>
         </View>
         <View style={styles.statBox}>
-          <Text style={styles.statValue}>350</Text>
-          <Text style={styles.statLabel}>نقطة</Text>
+          <Text style={styles.statValue}>{stats ? Math.floor(stats.current_balance) : 0}</Text>
+          <Text style={styles.statLabel}>إجمالي النور</Text>
+        </View>
+        <View style={styles.statBox}>
+          <Text style={styles.statValue}>{stats ? stats.current_streak_days : 0}</Text>
+          <Text style={styles.statLabel}>أيام التزام</Text>
         </View>
         <View style={styles.progressRing}>
           <Svg width={56} height={56}>
@@ -814,7 +829,7 @@ const ProgressCard = () => {
               strokeDasharray={circumference} strokeDashoffset={strokeDashoffset}
               strokeLinecap="round" transform="rotate(-90 28 28)" />
           </Svg>
-          <Text style={styles.progressPercent}>70%</Text>
+          <Text style={styles.progressPercent}>{Math.round(progress * 100)}%</Text>
         </View>
       </View>
     </View>
@@ -857,6 +872,7 @@ export default function PrayerHomeScreen() {
   const [isAuthChecked, setIsAuthChecked] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userName, setUserName] = useState<string | null>(null);
+  const [userStats, setUserStats] = useState<any>(null);
   const [isSideMenuVisible, setIsSideMenuVisible] = useState(false);
   const sideMenuTranslateX = React.useRef(new Animated.Value(400)).current;
   const [fontsLoaded] = useFonts({ Amiri_400Regular });
@@ -925,6 +941,31 @@ export default function PrayerHomeScreen() {
           if (storedName) setUserName(storedName);
         } catch (e) {
           console.warn('Error reading stored user name', e);
+        }
+
+        try {
+          const statsRes = await fetchWithTimeout(`${getAuthApiBaseUrl()}/light/user/me/stats`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          if (statsRes.ok) {
+            const statsJson = await statsRes.json();
+            if (statsJson.success) setUserStats(statsJson.data);
+          }
+        } catch (e) {
+          console.error("Error fetching stats:", e);
+        }
+
+        // Automatic Daily Check-in & Streak Update
+        try {
+          fetch(`${getAuthApiBaseUrl()}/light/daily-checkin`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+          }).catch(() => {});
+        } catch (e) {
+          console.warn('Daily check-in failed silently:', e);
         }
       } catch (error) {
         console.warn('Auth check failed:', error);

@@ -1,0 +1,44 @@
+
+> elsirat-server@1.0.0 dev
+> nodemon --watch src --exec node src/server.js
+
+[33m[nodemon] 2.0.22[39m
+[33m[nodemon] to restart at any time, enter `rs`[39m
+[33m[nodemon] watching path(s): src\**\*[39m
+[33m[nodemon] watching extensions: js,mjs,json[39m
+[32m[nodemon] starting `node src/server.js`[39m
+Server listening on port 5002
+[0mGET /healthz [32m200[0m 22.649 ms - 31[0m
+[0mGET /healthz [32m200[0m 1.348 ms - 31[0m
+[0mGET /healthz [32m200[0m 0.815 ms - 31[0m
+[0mGET /api/v1/light-settings [36m304[0m 6.659 ms - -[0m
+[0mGET /api/v1/light-settings [36m304[0m 4.353 ms - -[0m
+[0mGET /api/v1/light-settings [33m401[0m 1.528 ms - 102[0m
+[0mGET /api/v1/light-settings [33m401[0m 2.065 ms - 102[0m
+[0mPOST /api/v1/auth/refresh [32m200[0m 6.784 ms - 201[0m
+[0mPOST /api/v1/auth/refresh [32m200[0m 7.563 ms - 201[0m
+[0mGET /api/v1/light-settings [36m304[0m 2.329 ms - -[0m
+[0mGET /api/v1/light-settings [36m304[0m 2.212 ms - -[0m
+[0mGET /api/v1/light-settings [36m304[0m 2.597 ms - -[0m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] restarting due to changes...[39m
+[0mGET /api/v1/light-settings [33m401[0m 1.584 ms - 102[0m
+[0mPOST /api/v1/auth/refresh [32m200[0m 1.574 ms - 201[0m
+[0mGET /api/v1/light-settings [36m304[0m 2.899 ms - -[0m
+[0mGET /api/v1/light-settings [36m304[0m 4.467 ms - -[0m
+[0mGET /api/v1/admin/dashboard [33m401[0m 6.310 ms - 102[0m
+[0mGET /api/v1/admin/dashboard [33m401[0m 2.013 ms - 102[0m
+[0mPOST /api/v1/auth/refresh [32m200[0m 5.223 ms - 201[0m
+[0mPOST /api/v1/auth/refresh [32m200[0m 4.795 ms - 201[0m
+[0mGET /api/v1/admin/dashboard [36m304[0m 22.209 ms - -[0m
+[0mGET /api/v1/admin/dashboard [36m304[0m 2.438 ms - -[0m
+[0mGET /api/v1/admin/dashboard [36m304[0m 1.921 ms - -[0m
+[0mGET /api/v1/light-settings [36m304[0m 7.994 ms - -[0m
+[0mGET /api/v1/light-settings [36m304[0m 7.755 ms - -[0m
+[0mGET /api/v1/light-settings [33m401[0m 3.131 ms - 102[0m
+[0mGET /api/v1/light-settings [33m401[0m 1.212 ms - 102[0m
+[0mPOST /api/v1/auth/refresh [32m200[0m 4.646 ms - 201[0m
+[0mPOST /api/v1/auth/refresh [32m200[0m 2.948 ms - 201[0m
+[0mGET /api/v1/light-settings [32m200[0m 3.539 ms - 389[0m
+[0mGET /api/v1/light-settings [36m304[0m 3.217 ms - -[0m
+[0mGET /api/v1/light-settings [36m304[0m 4.783 ms - -[0m

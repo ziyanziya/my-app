@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import AuthShell from '@/components/auth-shell';
 import { AuthButton, AuthInput, AuthMessage, authTokens } from '@/components/auth-ui';
-import { getAuthApiBaseUrl } from '@/services/auth-api';
+import { getAuthApiBaseUrl, fetchWithTimeout } from '@/services/auth-api';
 
 const AUTH_TOKEN_KEY = 'authToken';
 const emailIsValid = (value: string) => /^\S+@\S+\.\S+$/.test(value.trim());
@@ -41,7 +41,10 @@ export default function RegisterScreen() {
 
     setIsSubmitting(true);
     try {
-      const response = await fetch(`${getAuthApiBaseUrl()}/auth/register`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: name.trim(), email: email.trim(), password }) });
+      const response = await fetchWithTimeout(
+        `${getAuthApiBaseUrl()}/auth/register`,
+        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: name.trim(), email: email.trim(), password }) },
+      );
       const result = await response.json().catch(() => ({}));
       if (!response.ok) return setError(toErrorString(result?.message ?? result?.error, 'تعذر إنشاء الحساب. حاول مرة أخرى.'));
 
@@ -59,7 +62,7 @@ export default function RegisterScreen() {
   };
 
   return (
-    <AuthShell variant="register" title="انضم إلى الصراط" subtitle="ابدأ تنظيم عاداتك الروحية يوميًا">
+    <AuthShell variant="register" title="انضم إلى الصراط" subtitle="ابدأ تنظيم عاداتك يوميًا">
       <View style={styles.form}>
         <AuthInput icon="user" placeholder="الاسم" autoComplete="name" value={name} onChangeText={setName} invalid={Boolean(error && name.trim().length < 2)} />
         <AuthInput icon="email" placeholder="البريد الإلكتروني" keyboardType="email-address" autoCapitalize="none" autoComplete="email" value={email} onChangeText={setEmail} invalid={Boolean(error && !emailIsValid(email))} />

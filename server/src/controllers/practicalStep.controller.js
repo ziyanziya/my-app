@@ -1,9 +1,11 @@
 const asyncHandler = require('../middlewares/asyncHandler');
 const practicalStepService = require('../services/practicalStep.service');
 const practicalStepMediaService = require('../services/practicalStepMedia.service');
+const notifications = require('../services/notification-domain.service');
 
 exports.create = asyncHandler(async (req, res) => {
   const data = await practicalStepService.createStep(req.body);
+  await notifications.createSystemBroadcast({ type: 'new_section', title: 'خطوة تطبيقية جديدة', body: 'تمت إضافة خطوة عملية جديدة.', data: { sourceId: data.id, deepLink: `/practical-road?stepId=${data.id}` } });
   res.status(201).json({ success: true, data });
 });
 
@@ -35,6 +37,20 @@ exports.getById = asyncHandler(async (req, res) => {
 exports.listByWorship = asyncHandler(async (req, res) => {
   const worshipId = req.params.worshipId;
   const data = await practicalStepService.getStepsByWorshipId(worshipId);
+  res.json({ success: true, data });
+});
+
+exports.completeStep = asyncHandler(async (req, res) => {
+  const userId = Number(req.user && req.user.sub);
+  const stepId = Number(req.params.id);
+  const data = await practicalStepService.completePracticalStep(userId, stepId);
+  res.json({ success: true, data });
+});
+
+exports.getUserProgress = asyncHandler(async (req, res) => {
+  const userId = Number(req.user && req.user.sub);
+  const worshipId = Number(req.params.worshipId);
+  const data = await practicalStepService.getUserPracticalProgress(userId, worshipId);
   res.json({ success: true, data });
 });
 

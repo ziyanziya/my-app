@@ -23,6 +23,9 @@ io.on('connection', (socket) => {
 
 const server = httpServer.listen(port, '0.0.0.0', () => {
   console.log(`Server listening on port ${port}`);
+  
+  // Start background workers
+  require('./services/notificationWorker').startWorker();
 });
 
 server.on('error', (err) => {

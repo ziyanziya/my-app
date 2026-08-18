@@ -52,13 +52,47 @@ export default function TheorySection() {
     completed.add(id);
     await AsyncStorage.setItem(completionKey(worshipId), JSON.stringify([...completed]));
     setCompletedIds([...completed]);
-    rewardScale.setValue(0.72);
-    rewardOpacity.setValue(0);
-    setShowReward(true);
-    Animated.parallel([
-      Animated.spring(rewardScale, { toValue: 1, friction: 5, tension: 90, useNativeDriver: true }),
-      Animated.timing(rewardOpacity, { toValue: 1, duration: 260, useNativeDriver: true }),
-    ]).start();
+
+    let awarded = section?.reward_points || 15;
+    try {
+      const token = await AsyncStorage.getItem('authToken');
+      if (token) {
+        const res = await fetch(`${getAuthApiBaseUrl()}/users/progress/theory`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            worship_id: Number(worshipId),
+            section_id: id,
+            completed: 1,
+          }),
+        });
+        if (res.ok) {
+          const resJson = await res.json();
+          if (resJson.data && resJson.data.awardedPoints !== undefined) {
+             awarded = resJson.data.awardedPoints;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Could not sync theory progress with backend:', e);
+    }
+
+    if (awarded > 0 && section) {
+      section.reward_points = awarded;
+      rewardScale.setValue(0.72);
+      rewardOpacity.setValue(0);
+      setShowReward(true);
+      Animated.parallel([
+        Animated.spring(rewardScale, { toValue: 1, friction: 5, tension: 90, useNativeDriver: true }),
+        Animated.timing(rewardOpacity, { toValue: 1, duration: 260, useNativeDriver: true }),
+      ]).start();
+    } else {
+      setShowReward(false);
+      next ? router.replace({ pathname: '/theory-section', params: { worshipId, sectionId: String(next.id) } }) : router.back();
+    }
   };
   const continueAfterReward = () => {
     setShowReward(false);

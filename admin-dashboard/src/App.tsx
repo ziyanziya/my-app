@@ -23,30 +23,22 @@ import {
   alpha,
 } from '@mui/material';
 import {
-  AnalyticsRounded,
   AutoAwesomeRounded,
   DarkModeRounded,
-  EmojiEventsRounded,
   EventAvailableRounded,
+  LogoutRounded,
   MenuBookRounded,
   MenuRounded,
   NotificationsRounded,
   PeopleAltRounded,
   SettingsRounded,
-  ShieldRounded,
   SpaceDashboardRounded,
-  WbSunnyRounded,
-  LogoutRounded,
 } from '@mui/icons-material';
 import DashboardPage from './pages/DashboardPage';
 import UsersPage from './pages/UsersPage';
 import ActivitiesPage from './pages/ActivitiesPage';
 import ContentPage from './pages/ContentPage';
-import LightRulesPage from './pages/LightRulesPage';
-import LightTransactionsPage from './pages/LightTransactionsPage';
-import AchievementsPage from './pages/AchievementsPage';
-import LevelsPage from './pages/LevelsPage';
-import StreakRulesPage from './pages/StreakRulesPage';
+import LightSettingsPage from './pages/LightSettingsPage';
 import NotificationsPage from './pages/NotificationsPage';
 import SettingsPage from './pages/SettingsPage';
 import AdhanPage from './pages/AdhanPage';
@@ -227,11 +219,7 @@ const navItems = [
   ['المستخدمون', '/users', <PeopleAltRounded />],
   ['عجلة العبادات', '/activities', <EventAvailableRounded />],
   ['المحتوى العلمي', '/content', <MenuBookRounded />],
-  ['نظام النور', '/light-rules', <AutoAwesomeRounded />],
-  ['معاملات النور', '/light-transactions', <AnalyticsRounded />],
-  ['الإنجازات', '/achievements', <EmojiEventsRounded />],
-  ['المستويات', '/levels', <ShieldRounded />],
-  ['مكافآت المواظبة', '/streak-rules', <WbSunnyRounded />],
+  ['إعدادات التلعيب والنور', '/light-settings', <AutoAwesomeRounded />],
   ['الإشعارات', '/notifications', <NotificationsRounded />],
   ['أصوات الأذان', '/adhan', <NotificationsRounded />],
   ['الإعدادات', '/settings', <SettingsRounded />],
@@ -390,7 +378,7 @@ function ProtectedLayout() {
               color="text.secondary"
               sx={{ fontSize: '0.875rem', fontWeight: 500 }}
             >
-              منصة الإدارة الروحية
+              منصة الإدارة
             </Typography>
           </Box>
 
@@ -456,11 +444,7 @@ function ProtectedLayout() {
           <Route path="/users" element={<UsersPage />} />
           <Route path="/activities" element={<ActivitiesPage />} />
           <Route path="/content" element={<ContentPage />} />
-          <Route path="/light-rules" element={<LightRulesPage />} />
-          <Route path="/light-transactions" element={<LightTransactionsPage />} />
-          <Route path="/achievements" element={<AchievementsPage />} />
-          <Route path="/levels" element={<LevelsPage />} />
-          <Route path="/streak-rules" element={<StreakRulesPage />} />
+          <Route path="/light-settings" element={<LightSettingsPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/adhan" element={<AdhanPage />} />
           <Route path="/settings" element={<SettingsPage />} />

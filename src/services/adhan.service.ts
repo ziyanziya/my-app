@@ -1,5 +1,6 @@
 import { Audio } from 'expo-av';
 import { PrayerService } from './prayer.service';
+import { scheduleLocalNotification } from './notifications.service';
 import { getAuthApiBaseUrl } from './auth-api';
 
 let sound: Audio.Sound | null = null;
@@ -86,13 +87,19 @@ export function stopAdhanScheduler() {
   }
 }
 
+import { NotificationScheduler } from './notification_scheduler';
+
 export function startAdhanScheduler(preferencesOrOnPlay?: AdhanPreferences | (() => void), optionalOnPlay?: () => void) {
   stopAdhanScheduler();
   const preferences = typeof preferencesOrOnPlay === 'function' || !preferencesOrOnPlay
     ? { enabled: true, selections: {} }
     : preferencesOrOnPlay;
   const onPlay = typeof preferencesOrOnPlay === 'function' ? preferencesOrOnPlay : optionalOnPlay;
-  if (!preferences.enabled) return;
+  
+  if (!preferences.enabled) {
+    NotificationScheduler.cancelAllOfType('adhan');
+    return;
+  }
 
   (async () => {
     try {
@@ -105,10 +112,29 @@ export function startAdhanScheduler(preferencesOrOnPlay?: AdhanPreferences | (()
         { name: 'isha', time: times.isha },
       ];
       const now = Date.now();
+      const names: Record<string, string> = { fajr: 'الفجر', dhuhr: 'الظهر', asr: 'العصر', maghrib: 'المغرب', isha: 'العشاء' };
 
-      prayers.forEach((p) => {
+      prayers.forEach(async (p) => {
         let ts = p.time.getTime();
-        if (ts <= now) ts += 24 * 60 * 60 * 1000; // schedule for next day if passed
+        let isNextDay = false;
+        if (ts <= now) {
+          ts += 24 * 60 * 60 * 1000; // schedule for next day if passed
+          isNextDay = true;
+        }
+        
+        const dateString = new Date(ts).toISOString().split('T')[0]; // e.g. 2026-08-19
+        const scheduleId = `${p.name}:${dateString}`;
+        
+        // 1. Schedule local push notification (works in background/killed)
+        await NotificationScheduler.scheduleExact(
+          'adhan',
+          scheduleId,
+          `حان الآن موعد أذان ${names[p.name]}`,
+          'حي على الصلاة، حي على الفلاح',
+          new Date(ts)
+        );
+
+        // 2. Schedule JS timeout for foreground audio playback
         const delay = ts - now;
         const timer = setTimeout(async () => {
           try {
@@ -121,6 +147,7 @@ export function startAdhanScheduler(preferencesOrOnPlay?: AdhanPreferences | (()
             console.warn('scheduled adhan play error', e);
           }
         }, delay);
+        
         timers.push(timer);
       });
     } catch (e) {

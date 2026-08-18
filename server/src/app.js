@@ -6,19 +6,14 @@ const cors = require('cors');
 const path = require('path');
 const routes = require('./routes');
 const errorMiddleware = require('./middlewares/error.middleware');
+const db = require('./config/db');
 
 const app = express();
 
 app.use(helmet());
 app.use(
   cors({
-    origin: [
-      /^https?:\/\/localhost(?::\d+)?$/,
-      /^https?:\/\/127\.0\.0\.1(?::\d+)?$/,
-      /^https?:\/\/10\.[0-9]+\.[0-9]+\.[0-9]+(?::\d+)?$/,
-      /^https?:\/\/192\.168\.[0-9]+\.[0-9]+(?::\d+)?$/,
-      /^https?:\/\/172\.(?:1[6-9]|2[0-9]|3[0-1])\.[0-9]+\.[0-9]+(?::\d+)?$/,
-    ],
+    origin: true,
     credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization'],
     exposedHeaders: ['Authorization'],
@@ -41,7 +36,14 @@ app.use(
 
 app.use('/api/v1', routes);
 
-app.get('/healthz', (_req, res) => res.json({ status: 'ok' }));
+app.get('/healthz', async (_req, res) => {
+  try {
+    await db.query('SELECT 1');
+    res.json({ status: 'ok', database: 'ok' });
+  } catch (error) {
+    res.status(503).json({ status: 'unavailable', database: 'unavailable' });
+  }
+});
 
 app.use(errorMiddleware);
 

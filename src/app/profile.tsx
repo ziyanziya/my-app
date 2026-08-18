@@ -73,6 +73,13 @@ export default function ProfileScreen() {
           <Text style={styles.value}>{user.email}</Text>
           {user.phone ? <><Text style={styles.label}>الهاتف</Text><Text style={styles.value}>{user.phone}</Text></> : null}
           {user.role ? <><Text style={styles.label}>الدور</Text><Text style={styles.value}>{user.role}</Text></> : null}
+          
+          <TouchableOpacity 
+            style={{ marginTop: 24, backgroundColor: '#d9a46b', padding: 12, borderRadius: 12, alignItems: 'center' }} 
+            onPress={() => router.push('/notification-settings')}
+          >
+            <Text style={{ color: '#150b14', fontWeight: 'bold' }}>إعدادات الإشعارات</Text>
+          </TouchableOpacity>
         </View>
       ) : null}
       {!loading && !error && !user ? <Text style={styles.message}>لا توجد معلومات مستخدم.</Text> : null}
@@ -81,7 +88,7 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#1a0e14', padding: 20 },
+  container: { flex: 1, backgroundColor: 'transparent', padding: 20 },
   header: { flexDirection: 'row', alignItems: 'center', marginBottom: 24 },
   backButton: { marginRight: 16, backgroundColor: '#d9a46b', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 12 },
   backText: { color: '#150b14', fontWeight: '700' },

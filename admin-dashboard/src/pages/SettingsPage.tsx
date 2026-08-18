@@ -14,7 +14,7 @@ export default function SettingsPage() {
 
   async function loadFiles() {
     try {
-      const res = await apiFetch('/admin/adhan');
+      const res = await apiFetch<{ data?: any[] }>('/admin/adhan');
       setFiles(res.data || []);
     } catch (e) {
       // ignore
@@ -23,7 +23,7 @@ export default function SettingsPage() {
 
   async function loadSettings() {
     try {
-      const res = await apiFetch('/admin/adhan/settings');
+      const res = await apiFetch<{ data?: { fajrFile?: string; fajrEnabled?: boolean } }>('/admin/adhan/settings');
       setFajrFile(res.data?.fajrFile || null);
       setFajrEnabled(!!res.data?.fajrEnabled);
     } catch (e) {

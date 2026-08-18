@@ -72,4 +72,44 @@ async function reorderSteps(steps = []) {
   return true;
 }
 
-module.exports = { createStep, findById, findByWorshipId, updateStep, deleteStep, reorderSteps };
+async function saveUserPracticalProgress(userId, { worship_id, step_id, completed = 1 }) {
+  const [existing] = await db.query(
+    'SELECT * FROM user_practical_progress WHERE user_id = ? AND step_id = ? LIMIT 1',
+    [userId, step_id],
+  );
+
+  if (existing.length === 0) {
+    const [result] = await db.query(
+      'INSERT INTO user_practical_progress (user_id, worship_id, step_id, completed, completed_at, created_at, updated_at) VALUES (?, ?, ?, ?, NOW(3), NOW(3), NOW(3))',
+      [userId, worship_id, step_id, completed ? 1 : 0],
+    );
+    const [rows] = await db.query('SELECT * FROM user_practical_progress WHERE id = ?', [result.insertId]);
+    return rows[0];
+  }
+
+  await db.query(
+    'UPDATE user_practical_progress SET completed = ?, completed_at = NOW(3), updated_at = NOW(3) WHERE id = ?',
+    [completed ? 1 : 0, existing[0].id],
+  );
+  const [rows] = await db.query('SELECT * FROM user_practical_progress WHERE id = ?', [existing[0].id]);
+  return rows[0];
+}
+
+async function getUserPracticalProgress(userId, worshipId) {
+  const [rows] = await db.query(
+    'SELECT * FROM user_practical_progress WHERE user_id = ? AND worship_id = ?',
+    [userId, worshipId],
+  );
+  return rows;
+}
+
+module.exports = {
+  createStep,
+  findById,
+  findByWorshipId,
+  updateStep,
+  deleteStep,
+  reorderSteps,
+  saveUserPracticalProgress,
+  getUserPracticalProgress,
+};

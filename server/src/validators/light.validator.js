@@ -1,6 +1,6 @@
 const Joi = require('joi');
 
-const lightScopeEnum = ['prayer', 'wheel', 'activity', 'achievement', 'event', 'manual', 'system'];
+const lightScopeEnum = ['prayer', 'wheel', 'activity', 'achievement', 'event', 'theory', 'practical', 'daily_checkin', 'all_worships', 'manual', 'system'];
 
 const createRule = Joi.object({
   body: Joi.object({

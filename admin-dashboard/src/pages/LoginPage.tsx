@@ -34,7 +34,7 @@ export default function LoginPage() {
     <Paper component="form" onSubmit={submit} sx={{ width: '100%', maxWidth: 440, p: { xs: 3, sm: 5 }, border: '1px solid rgba(232,199,106,.28)', bgcolor: 'rgba(38,15,24,.92)', borderRadius: 5, textAlign: 'right' }}>
       <Stack spacing={2.5}>
         <Box sx={{ color: 'secondary.main', display: 'flex', gap: 1, alignItems: 'center' }}><MosqueRounded /><Typography variant="h4" sx={{ fontWeight: 800 }}>الصراط</Typography></Box>
-        <Box><Typography variant="h5" sx={{ fontWeight: 800 }}>منصة الإدارة</Typography><Typography color="text.secondary">سجّل الدخول لإدارة رحلة المستخدمين الروحية.</Typography></Box>
+        <Box><Typography variant="h5" sx={{ fontWeight: 800 }}>منصة الإدارة</Typography><Typography color="text.secondary">سجّل الدخول لإدارة رحلة المستخدمين.</Typography></Box>
         {error ? <Alert severity="error">{error}</Alert> : null}
         <TextField label="البريد الإلكتروني" value={email} onChange={(e) => setEmail(e.target.value)} type="email" required fullWidth autoFocus />
         <TextField label="كلمة المرور" value={password} onChange={(e) => setPassword(e.target.value)} type="password" required fullWidth />

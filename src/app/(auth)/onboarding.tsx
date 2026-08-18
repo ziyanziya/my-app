@@ -6,7 +6,7 @@ import AuthShell from '@/components/auth-shell';
 const pages = [
   {
     title: 'بداية يومية مع الفجر',
-    description: 'رتب مهامك الصباحية بدقة وابدأ رحلتك الروحية بهدف وراحة نفسية.',
+    description: 'رتب مهامك الصباحية بدقة وابدأ رحلتك بهدف وراحة نفسية.',
   },
   {
     title: 'تذكيرات ذكية',

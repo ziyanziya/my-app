@@ -1,8 +1,10 @@
 const asyncHandler = require('../middlewares/asyncHandler');
 const theorySectionService = require('../services/theorySection.service');
+const notifications = require('../services/notification-domain.service');
 
 exports.create = asyncHandler(async (req, res) => {
   const data = await theorySectionService.createSection(req.body);
+  await notifications.createSystemBroadcast({ type: 'new_section', title: 'قسم نظري جديد', body: 'تمت إضافة قسم نظري جديد.', data: { sourceId: data.id, deepLink: `/theory-section?sectionId=${data.id}` } });
   res.status(201).json({ success: true, data });
 });
 

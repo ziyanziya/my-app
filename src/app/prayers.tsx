@@ -42,7 +42,6 @@ export default function PrayersPage() {
   useEffect(() => {
     AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(preferences));
     if (preferences.enabled) AdhanService.startAdhanScheduler(preferences); else AdhanService.stopAdhanScheduler();
-    return () => AdhanService.stopAdhanScheduler();
   }, [preferences]);
 
   const choose = (url: string) => {

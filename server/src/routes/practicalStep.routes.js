@@ -8,6 +8,9 @@ const upload = require('../middlewares/practicalMediaUpload.middleware');
 const router = express.Router();
 
 router.get('/worship/:worshipId(\\d+)', controller.listByWorship);
+router.get('/progress/:worshipId(\\d+)', authenticate, controller.getUserProgress);
+router.post('/:id(\\d+)/complete', authenticate, controller.completeStep);
+
 router.get('/:id(\\d+)/media', controller.listMedia);
 router.post('/:id(\\d+)/media/link', authenticate, requireRole('admin'), controller.addMediaLink);
 router.post('/:id(\\d+)/media/upload', authenticate, requireRole('admin'), upload.single('video'), controller.uploadMedia);

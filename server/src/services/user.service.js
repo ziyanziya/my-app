@@ -1,50 +1,26 @@
 const userRepo = require('../repositories/user.repo');
-const path = require('path');
-const fs = require('fs');
+const lightService = require('./light.service');
+const achievementService = require('./achievement.service');
+const db = require('../config/db');
 
 async function getProfile(userId) {
-  const user = await userRepo.findById(userId);
-  if (!user) {
-    const err = new Error('User not found'); err.status = 404; throw err;
-  }
-  return {
-    id: user.id,
-    name: user.name,
-    email: user.email,
-    phone: user.phone,
-    timezone: user.timezone,
-    locale: user.locale,
-    avatarUrl: user.avatar_url || null,
-    totalPoints: user.total_points || 0,
-    role: user.role || 'user',
-  };
+  return userRepo.findById(userId);
 }
 
 async function updateProfile(userId, payload) {
-  const updated = await userRepo.updateUser(userId, payload);
-  return {
-    id: updated.id,
-    name: updated.name,
-    email: updated.email,
-    phone: updated.phone,
-    timezone: updated.timezone,
-    locale: updated.locale,
-    avatarUrl: updated.avatar_url || null,
-  };
+  return userRepo.updateProfile(userId, payload);
 }
 
 async function uploadAvatar(userId, file) {
-  if (!file) {
-    const err = new Error('No file uploaded'); err.status = 400; throw err;
-  }
-  // move / ensure stored path is accessible. multer already saved the file.
-  const avatarUrl = `/uploads/avatars/${path.basename(file.path)}`;
-  const user = await userRepo.setAvatarUrl(userId, avatarUrl);
-  return { avatarUrl: avatarUrl };
+  if (!file) throw new Error('No file provided');
+  const avatarUrl = `/uploads/avatars/${file.filename}`;
+  return userRepo.updateAvatar(userId, avatarUrl);
 }
 
 async function getStats(userId) {
-  return userRepo.getStats(userId);
+  const stats = await userRepo.getStats(userId);
+  const lightStats = await lightService.getUserStats(userId);
+  return { ...stats, light: lightStats };
 }
 
 async function getSettings(userId) {
@@ -52,7 +28,6 @@ async function getSettings(userId) {
 }
 
 async function updateSettings(userId, settings) {
-  // settings is object of key->value
   const keys = Object.keys(settings || {});
   let result = {};
   for (const k of keys) {
@@ -66,7 +41,46 @@ async function getTheoryProgress(userId, worshipId) {
 }
 
 async function saveTheoryProgress(userId, payload) {
-  return userRepo.saveTheoryProgress(userId, payload);
+  const data = await userRepo.saveTheoryProgress(userId, payload);
+  let awardedPoints = 0;
+
+  // If completed, award light for theory section
+  if (payload.completed && payload.section_id) {
+    try {
+      const [rows] = await db.query('SELECT * FROM theory_sections WHERE id = ? LIMIT 1', [payload.section_id]);
+      const section = rows[0];
+      const sectionTitle = section ? section.title : 'قسم نظري';
+      const points = section && section.reward_points ? Number(section.reward_points) : 15;
+
+      const rule = (await lightService.findRuleBySource('theory', String(payload.section_id)))
+        || (await lightService.findRuleBySource('theory', null));
+
+      const transaction = await lightService.awardLightForUser(userId, {
+        ruleId: rule ? rule.id : null,
+        amount: rule ? null : points,
+        sourceScope: 'theory',
+        sourceKey: String(payload.section_id),
+        idempotencyKey: `theory_complete:${userId}:${payload.section_id}`,
+        externalReference: `theory_complete:${payload.section_id}`,
+        performedBy: userId,
+        performedByType: 'user',
+        reason: `إتمام قراءة قسم نظري: ${sectionTitle}`,
+        metadata: { sectionId: payload.section_id, worshipId: payload.worship_id, sectionTitle },
+      });
+      awardedPoints = transaction.amount;
+
+      await achievementService.tryUnlockAchievementsForUser(userId);
+    } catch (e) {
+      if (e.code === 'ER_DUP_ENTRY' || (e.message && e.message.includes('idempotency'))) {
+        // Idempotency: already awarded
+        console.log('Theory progress already awarded for this user/section.');
+      } else {
+        console.error('Error awarding light for theory progress:', e);
+      }
+    }
+  }
+
+  return { progress: data, awardedPoints };
 }
 
 async function updateTheoryProgress(userId, id, payload) {
@@ -77,4 +91,20 @@ async function getLastTheoryProgress(userId) {
   return userRepo.getLastTheoryProgress(userId);
 }
 
-module.exports = { getProfile, updateProfile, uploadAvatar, getStats, getSettings, updateSettings, getTheoryProgress, saveTheoryProgress, updateTheoryProgress, getLastTheoryProgress };
+async function savePushToken(userId, device) {
+  return require('./notification-domain.service').registerDevice(userId, device);
+}
+
+module.exports = {
+  getProfile,
+  updateProfile,
+  uploadAvatar,
+  getStats,
+  getSettings,
+  updateSettings,
+  getTheoryProgress,
+  saveTheoryProgress,
+  updateTheoryProgress,
+  getLastTheoryProgress,
+  savePushToken,
+};

@@ -7,6 +7,7 @@ import type { VideoSource } from 'expo-video';
 import Svg, { Path } from 'react-native-svg';
 import { getAuthApiBaseUrl } from '../services/auth-api';
 import { getTheoryDisplayTheme } from '../constants/theory-display-theme';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type PracticalMedia = { id: number; url: string; title: string | null; original_name: string | null };
 type PracticalStep = {
@@ -205,17 +206,31 @@ export default function PracticalRoad() {
   const [steps, setSteps] = useState<PracticalStep[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [selectedMedia, setSelectedMedia] = useState<PracticalMedia | null>(null);
+  const [completedStepIds, setCompletedStepIds] = useState<number[]>([]);
+  const [rewardAmount, setRewardAmount] = useState<number | null>(null);
   const [activeVideoId, setActiveVideoId] = useState<number | null>(null);
+  const [selectedMedia, setSelectedMedia] = useState<PracticalMedia | null>(null);
 
   useEffect(() => {
     let active = true;
     (async () => {
       try {
-        const response = await fetch(`${getAuthApiBaseUrl()}/practical-steps/worship/${worshipId}`);
-        if (!response.ok) throw new Error('تعذر تحميل الأقسام التطبيقية.');
-        const payload = await response.json();
+        const token = await AsyncStorage.getItem('authToken');
+        const [stepsRes, progRes] = await Promise.all([
+          fetch(`${getAuthApiBaseUrl()}/practical-steps/worship/${worshipId}`),
+          token ? fetch(`${getAuthApiBaseUrl()}/practical-steps/progress/${worshipId}`, { headers: { Authorization: `Bearer ${token}` } }) : Promise.resolve(null),
+        ]);
+
+        if (!stepsRes.ok) throw new Error('تعذر تحميل الأقسام التطبيقية.');
+        const payload = await stepsRes.json();
         if (active) setSteps((Array.isArray(payload.data) ? payload.data : []).sort((a: PracticalStep, b: PracticalStep) => a.order_index - b.order_index));
+
+        if (progRes && progRes.ok) {
+          const progData = await progRes.json();
+          if (active && Array.isArray(progData.data)) {
+            setCompletedStepIds(progData.data.filter((p: any) => p.completed).map((p: any) => p.step_id));
+          }
+        }
       } catch (cause) {
         if (active) setError(cause instanceof Error ? cause.message : 'تعذر تحميل الأقسام التطبيقية.');
       } finally {
@@ -224,6 +239,34 @@ export default function PracticalRoad() {
     })();
     return () => { active = false; };
   }, [worshipId]);
+
+  const handleCompleteStep = async (stepId: number, rewardPoints: number) => {
+    try {
+      const token = await AsyncStorage.getItem('authToken');
+      if (token) {
+        const res = await fetch(`${getAuthApiBaseUrl()}/practical-steps/${stepId}/complete`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        if (res.ok) {
+          const resJson = await res.json();
+          setCompletedStepIds((prev) => Array.from(new Set([...prev, stepId])));
+          const awarded = resJson.data?.awardedPoints !== undefined ? resJson.data.awardedPoints : (rewardPoints || 25);
+          if (awarded > 0) {
+            setRewardAmount(awarded);
+          }
+        }
+      } else {
+        setCompletedStepIds((prev) => Array.from(new Set([...prev, stepId])));
+        setRewardAmount(rewardPoints || 25);
+      }
+    } catch (e) {
+      console.warn('Error completing practical step:', e);
+    }
+  };
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]}>
@@ -250,36 +293,63 @@ export default function PracticalRoad() {
         {error ? <Text style={styles.error}>{error}</Text> : null}
         {!loading && !error && steps.length === 0 ? <Text style={[styles.message, { color: theme.muted }]}>لا توجد أقسام تطبيقية لهذه العبادة بعد.</Text> : null}
 
-        {steps.map((step, stepIndex) => (
-          <View key={step.id} style={[styles.stepCard, { backgroundColor: theme.surface, borderColor: `${theme.accent}88` }]}>
-            <View style={styles.stepHeading}>
-              <View style={[styles.stepNumber, { borderColor: theme.accent }]}><Text style={[styles.stepNumberText, { color: theme.accent }]}>{stepIndex + 1}</Text></View>
-              <View style={styles.stepHeadingText}>
-                <Text style={styles.stepTitle}>{step.title}</Text>
-              </View>
-            </View>
-
-            {step.media?.length ? step.media.map((media, mediaIndex) => {
-              const isPlaying = activeVideoId === media.id || selectedMedia?.id === media.id;
-              const isInline = activeVideoId === media.id;
-              return (
-                <View key={media.id}>
-                  <VideoCardPreview
-                    media={media}
-                    isPlaying={isPlaying}
-                    isInline={isInline}
-                    onOpen={() => setActiveVideoId((current) => current === media.id ? null : media.id)}
-                    onInlineToggle={() => setActiveVideoId((current) => current === media.id ? null : media.id)}
-                    onMaximize={() => setSelectedMedia(media)}
-                  />
-                  {step.description ? <Text style={[styles.videoDescription, { color: theme.muted }]}>{step.description}</Text> : null}
+        {steps.map((step, stepIndex) => {
+          const isDone = completedStepIds.includes(step.id);
+          return (
+            <View key={step.id} style={[styles.stepCard, { backgroundColor: theme.surface, borderColor: isDone ? theme.accent : `${theme.accent}55` }]}>
+              <View style={styles.stepHeading}>
+                <View style={[styles.stepNumber, { borderColor: theme.accent, backgroundColor: isDone ? theme.accent : 'transparent' }]}>
+                  <Text style={[styles.stepNumberText, { color: isDone ? '#fff' : theme.accent }]}>{isDone ? '✓' : stepIndex + 1}</Text>
                 </View>
-              );
-            }) : <Text style={[styles.noVideo, { color: theme.muted }]}>سيُضاف فيديو لهذا القسم قريبًا.</Text>}
-          </View>
-        ))}
+                <View style={styles.stepHeadingText}>
+                  <Text style={styles.stepTitle}>{step.title}</Text>
+                </View>
+              </View>
+
+              {step.media?.length ? step.media.map((media) => {
+                const isPlaying = activeVideoId === media.id || selectedMedia?.id === media.id;
+                const isInline = activeVideoId === media.id;
+                return (
+                  <View key={media.id}>
+                    <VideoCardPreview
+                      media={media}
+                      isPlaying={isPlaying}
+                      isInline={isInline}
+                      onOpen={() => setActiveVideoId((current) => current === media.id ? null : media.id)}
+                      onInlineToggle={() => setActiveVideoId((current) => current === media.id ? null : media.id)}
+                      onMaximize={() => setSelectedMedia(media)}
+                    />
+                    {step.description ? <Text style={[styles.videoDescription, { color: theme.muted }]}>{step.description}</Text> : null}
+                  </View>
+                );
+              }) : <Text style={[styles.noVideo, { color: theme.muted }]}>سيُضاف فيديو لهذا القسم قريبًا.</Text>}
+
+              <Pressable
+                style={[styles.doneBtn, { backgroundColor: isDone ? '#2c3e50' : '#8b1e38', borderColor: theme.accent }]}
+                onPress={() => !isDone && handleCompleteStep(step.id, step.reward_points)}
+                disabled={isDone}
+              >
+                <Text style={styles.doneBtnText}>{isDone ? 'تم إتمام الخطوة بنجاح ✓' : `إتمام وتطبيق الخطوة (+${step.reward_points || 25} نور)`}</Text>
+              </Pressable>
+            </View>
+          );
+        })}
       </ScrollView>
       {selectedMedia ? <InAppVideoPlayer media={selectedMedia} onClose={() => setSelectedMedia(null)} /> : null}
+
+      {rewardAmount !== null ? (
+        <View style={styles.rewardBackdrop}>
+          <View style={styles.rewardCard}>
+            <Text style={styles.rewardStarIcon}>🌟</Text>
+            <Text style={styles.rewardHead}>أحسنت صنعاً!</Text>
+            <Text style={styles.rewardSub}>تم إنجاز الخطوة التطبيقية وحصلت على:</Text>
+            <Text style={styles.rewardValue}>+{rewardAmount} نور</Text>
+            <Pressable style={styles.rewardClose} onPress={() => setRewardAmount(null)}>
+              <Text style={styles.rewardCloseText}>متابعة</Text>
+            </Pressable>
+          </View>
+        </View>
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -366,4 +436,14 @@ const styles = StyleSheet.create({
   closePlayer: { width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(245,230,211,0.13)', alignItems: 'center', justifyContent: 'center' },
   closePlayerText: { color: '#f5e6d3', fontSize: 25, lineHeight: 28 },
   videoPlayer: { width: '100%', aspectRatio: 16 / 9, backgroundColor: '#000' },
+  doneBtn: { marginTop: 14, paddingVertical: 12, borderRadius: 14, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  doneBtnText: { color: '#fff', fontSize: 14, fontWeight: '800', writingDirection: 'rtl' },
+  rewardBackdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.85)', alignItems: 'center', justifyContent: 'center', padding: 24 },
+  rewardCard: { width: '100%', maxWidth: 320, backgroundColor: '#24161f', borderRadius: 24, padding: 24, alignItems: 'center', borderWidth: 1.5, borderColor: '#d4a574' },
+  rewardStarIcon: { fontSize: 44, marginBottom: 8 },
+  rewardHead: { color: '#f5e6d3', fontSize: 22, fontWeight: '900', writingDirection: 'rtl', marginBottom: 4 },
+  rewardSub: { color: '#a99284', fontSize: 13, writingDirection: 'rtl', textAlign: 'center', marginBottom: 12 },
+  rewardValue: { color: '#d4a574', fontSize: 28, fontWeight: '900', marginBottom: 18 },
+  rewardClose: { width: '100%', paddingVertical: 12, backgroundColor: '#8b1e38', borderRadius: 14, alignItems: 'center' },
+  rewardCloseText: { color: '#fff', fontSize: 15, fontWeight: '800' },
 });

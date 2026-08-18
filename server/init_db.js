@@ -27,7 +27,9 @@ async function run() {
   }
 
   const sqlFiles = fs.readdirSync(dbDir)
-    .filter((file) => file.endsWith('.sql'))
+    // Only numbered migrations are executable. Backups may live beside them,
+    // but must never be replayed by a deployment command.
+    .filter((file) => /^\d+_[\w-]+\.sql$/.test(file))
     .sort();
 
   const host = process.env.DB_HOST || '127.0.0.1';

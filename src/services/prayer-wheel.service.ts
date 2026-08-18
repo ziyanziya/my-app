@@ -121,6 +121,13 @@ const sharedContentKeys: Record<string, string> = {
 const getWorshipIdForWheelKey = (lookup: Map<string, number>, wheelKey: string) =>
   lookup.get(sharedContentKeys[wheelKey] ?? wheelKey);
 
+// These labels sit on the lower half of the wheel and need the opposite
+// orientation to remain readable along their slices.
+const reverseTextDirectionKeys = new Set([
+  'qiyam_layl',
+  'qiyamLayl',
+]);
+
 export async function loadPrayerWheelEventsConfig(): Promise<PrayerWheelEventConfig[]> {
   const prayerEventIds: Record<string, number> = {
     maghribPrayer: 20,
@@ -132,11 +139,18 @@ export async function loadPrayerWheelEventsConfig(): Promise<PrayerWheelEventCon
 
   const staticPrayerEvents = prayerWheelConfig.events.filter((event) => Object.prototype.hasOwnProperty.call(prayerEventIds, event.id));
 
+  // ── Timeout guard: abort if server doesn't respond within 5 seconds ──
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5000);
+
   try {
+    const baseUrl = getAuthApiBaseUrl();
+    const fetchOpts: RequestInit = { signal: controller.signal };
+
     const [response, worshipsResponse] = await Promise.all([
-      fetch(`${getAuthApiBaseUrl()}/prayer-wheel-events`),
-      fetch(`${getAuthApiBaseUrl()}/worships?all=1`),
-    ]);
+      fetch(`${baseUrl}/prayer-wheel-events`, fetchOpts),
+      fetch(`${baseUrl}/worships?all=1`, fetchOpts),
+    ]).finally(() => clearTimeout(timeoutId));
 
     if (!response.ok) throw new Error('Failed to load prayer wheel events');
     const payload = await response.json();
@@ -154,7 +168,7 @@ export async function loadPrayerWheelEventsConfig(): Promise<PrayerWheelEventCon
         sourceKey: normalizeAnchorKey(row.anchor_key, row.anchor_type),
         offsetMinutes: Number(row.offset_minutes ?? 0),
         durationMinutes: Number(row.duration_minutes ?? prayerWheelConfig.defaultDurationMinutes),
-        reverseTextDirection: Boolean(row.reverse_text_direction),
+        reverseTextDirection: reverseTextDirectionKeys.has(row.slug) || Boolean(row.reverse_text_direction),
         sortOrder: Number(row.sort_order ?? 0),
         worshipId: getWorshipIdForWheelKey(worshipLookup, row.slug),
       }));
@@ -171,10 +185,13 @@ export async function loadPrayerWheelEventsConfig(): Promise<PrayerWheelEventCon
     ].sort((a, b) => a.sortOrder - b.sortOrder);
 
     return merged.map((item) => item.event);
-  } catch (error) {
+  } catch (_err) {
+    // Server unreachable or timed-out — silently fall back to static config
+    clearTimeout(timeoutId);
     return prayerWheelConfig.events;
   }
 }
+
 
 export function generateDailyWheel(
   prayerTimes: PrayerTimesResult,

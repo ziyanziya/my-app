@@ -5,6 +5,7 @@ const upload = require('../middlewares/upload.middleware');
 const validator = require('../validators/user.validator');
 const progressValidator = require('../validators/userTheoryProgress.validator');
 const validate = require('../middlewares/validate.middleware');
+const notificationValidator = require('../validators/adminNotification.validator');
 
 const router = express.Router();
 
@@ -12,6 +13,7 @@ router.get('/profile', authenticate, controller.profile);
 router.put('/profile', authenticate, validate(validator.updateProfile), controller.update);
 router.post('/profile/avatar', authenticate, upload.single('avatar'), controller.uploadAvatar);
 router.get('/stats', authenticate, controller.stats);
+router.post('/push-token', authenticate, validate(notificationValidator.device), controller.savePushToken);
 router.get('/settings', authenticate, controller.getSettings);
 router.put('/settings', authenticate, validate(validator.updateSettings), controller.updateSettings);
 

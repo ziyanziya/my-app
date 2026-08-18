@@ -66,3 +66,9 @@ exports.getLastTheoryProgress = asyncHandler(async (req, res) => {
   const data = await userService.getLastTheoryProgress(userId);
   res.json({ success: true, data });
 });
+
+exports.savePushToken = asyncHandler(async (req, res) => {
+  const userId = req.user && req.user.sub;
+  await userService.savePushToken(userId, req.body);
+  res.json({ success: true, message: 'Token saved' });
+});
