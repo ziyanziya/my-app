@@ -1,7 +1,8 @@
 const dotenv = require('dotenv');
 const path = require('path');
 
-dotenv.config({ path: path.resolve(__dirname, '..', '.env') });
+// __dirname is server/src/config; the environment file lives in server/.env.
+dotenv.config({ path: path.resolve(__dirname, '..', '..', '.env') });
 
 module.exports = {
   PORT: process.env.PORT || 5002,

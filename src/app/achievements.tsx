@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useState } from 'react';
 import { Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View, ActivityIndicator } from 'react-native';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getAuthApiBaseUrl, fetchWithTimeout } from '../services/auth-api';
 
@@ -9,7 +9,8 @@ export default function AchievementsScreen() {
   const [transactions, setTransactions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
+    let active = true;
     const fetchData = async () => {
       try {
         const token = await AsyncStorage.getItem('authToken');
@@ -29,22 +30,23 @@ export default function AchievementsScreen() {
 
         if (statsRes.ok) {
           const statsJson = await statsRes.json();
-          if (statsJson.success) setStats(statsJson.data);
+          if (active && statsJson.success) setStats(statsJson.data);
         }
 
         if (transRes.ok) {
           const transJson = await transRes.json();
-          if (transJson.success) setTransactions(transJson.data);
+          if (active && transJson.success) setTransactions(transJson.data);
         }
       } catch (e) {
         console.error("Error fetching achievements data:", e);
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     };
 
     fetchData();
-  }, []);
+    return () => { active = false; };
+  }, []));
 
   const formatDate = (dateString: string) => {
     const d = new Date(dateString);
@@ -68,7 +70,7 @@ export default function AchievementsScreen() {
           <>
             <View style={styles.heroCard}>
               <Text style={styles.heroLabel}>إجمالي النور المكتسب</Text>
-              <Text style={styles.heroValue}>{stats ? Math.floor(stats.current_balance) : 0}</Text>
+              <Text style={styles.heroValue}>{stats ? Math.floor(stats.total_awarded || 0) : 0}</Text>
               <Text style={styles.heroSubtext}>أنت على الطريق الصحيح!</Text>
               
               <View style={styles.statsRow}>

@@ -1,0 +1,6 @@
+-- Reconcile the original theory progress migration with the repository contract.
+USE `elsirat_db`;
+SET @add_updated_at = IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'user_theory_progress' AND COLUMN_NAME = 'updated_at'), 'SELECT 1', 'ALTER TABLE `user_theory_progress` ADD COLUMN `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) AFTER `created_at`');
+PREPARE statement_from_add_updated_at FROM @add_updated_at; EXECUTE statement_from_add_updated_at; DEALLOCATE PREPARE statement_from_add_updated_at;
+SET @replace_progress_key = IF(EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'user_theory_progress' AND INDEX_NAME = 'ux_user_theory_progress'), 'ALTER TABLE `user_theory_progress` DROP INDEX `ux_user_theory_progress`, ADD UNIQUE KEY `ux_user_theory_progress_user_section` (`user_id`, `section_id`), ADD KEY `idx_user_theory_progress_user_worship` (`user_id`, `worship_id`)', 'SELECT 1');
+PREPARE statement_from_replace_progress_key FROM @replace_progress_key; EXECUTE statement_from_replace_progress_key; DEALLOCATE PREPARE statement_from_replace_progress_key;

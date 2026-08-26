@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useFonts, Amiri_400Regular } from '@expo-google-fonts/amiri';
 import {
   View,
@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import Svg, {
   Circle,
   Line,
@@ -31,7 +31,8 @@ import Svg, {
 } from 'react-native-svg';
 import type { PrayerTimesResult } from '../services/prayer.service';
 import type { DailyWheelItem } from '../services/prayer-wheel.service';
-import { getAuthApiBaseUrl, fetchWithTimeout } from '../services/auth-api';
+import { getAuthApiBaseUrl } from '../services/auth-api';
+import { clearAuthSession, fetchWithAuth } from '../services/auth-session';
 
 const homeBackground = require('../../assets/images/auth/islamic-auth-background.png');
 const homeLogo = require('../../assets/images/auth/elsirat-logo-final-transparent.png');
@@ -800,7 +801,7 @@ const PrayerTimesCard = ({ prayerTimes, error }: { prayerTimes: PrayerTimesResul
 };
 
 const ProgressCard = ({ stats }: { stats: any }) => {
-  const dailyGoal = 100;
+  const dailyGoal = Math.max(1, Number(stats?.daily_goal) || 100);
   const dailyNour = stats ? stats.daily_awarded : 0;
   const progress = Math.min(dailyNour / dailyGoal, 1);
   const circumference = 2 * Math.PI * 24;
@@ -873,6 +874,28 @@ export default function PrayerHomeScreen() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userName, setUserName] = useState<string | null>(null);
   const [userStats, setUserStats] = useState<any>(null);
+
+  // The home screen stays mounted while a user moves through a worship path.
+  // Refresh on focus so a newly awarded Light transaction is reflected on return.
+  useFocusEffect(useCallback(() => {
+    let active = true;
+
+    fetchWithAuth(`${getAuthApiBaseUrl()}/light/user/me/stats`)
+      .then(async (response) => {
+        if (response.status === 401) {
+          router.replace('/login');
+          return;
+        }
+        if (!response.ok) return;
+        const payload = await response.json();
+        if (active && payload.success) setUserStats(payload.data);
+      })
+      .catch(() => {
+        // The initial authentication flow continues to handle unavailable sessions.
+      });
+
+    return () => { active = false; };
+  }, []));
   const [isSideMenuVisible, setIsSideMenuVisible] = useState(false);
   const sideMenuTranslateX = React.useRef(new Animated.Value(400)).current;
   const [fontsLoaded] = useFonts({ Amiri_400Regular });
@@ -906,7 +929,7 @@ export default function PrayerHomeScreen() {
     }
 
     if (itemId === 'logout') {
-      await AsyncStorage.multiRemove(['authToken', 'authUserName']);
+      await clearAuthSession();
       setIsAuthenticated(false);
       router.replace('/login');
     }
@@ -944,9 +967,11 @@ export default function PrayerHomeScreen() {
         }
 
         try {
-          const statsRes = await fetchWithTimeout(`${getAuthApiBaseUrl()}/light/user/me/stats`, {
-            headers: { Authorization: `Bearer ${token}` }
-          });
+          const statsRes = await fetchWithAuth(`${getAuthApiBaseUrl()}/light/user/me/stats`);
+          if (statsRes.status === 401) {
+            router.replace('/login');
+            return;
+          }
           if (statsRes.ok) {
             const statsJson = await statsRes.json();
             if (statsJson.success) setUserStats(statsJson.data);
@@ -957,12 +982,9 @@ export default function PrayerHomeScreen() {
 
         // Automatic Daily Check-in & Streak Update
         try {
-          fetch(`${getAuthApiBaseUrl()}/light/daily-checkin`, {
+          fetchWithAuth(`${getAuthApiBaseUrl()}/light/daily-checkin`, {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${token}`,
-            },
+            headers: { 'Content-Type': 'application/json' },
           }).catch(() => {});
         } catch (e) {
           console.warn('Daily check-in failed silently:', e);
@@ -1093,7 +1115,7 @@ export default function PrayerHomeScreen() {
         />
         <TimeCard currentTime={currentTime} />
         <PrayerTimesCard prayerTimes={prayerTimes} error={prayerError} />
-        <ProgressCard />
+        <ProgressCard stats={userStats} />
       </ScrollView>
       </ImageBackground>
 

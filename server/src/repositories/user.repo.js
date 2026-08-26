@@ -96,8 +96,11 @@ async function upsertSetting(userId, key, value) {
 }
 
 async function findTheoryProgress(userId, worshipId) {
-  const [rows] = await db.query('SELECT * FROM user_theory_progress WHERE user_id = ? AND worship_id = ? LIMIT 1', [userId, worshipId]);
-  return rows[0];
+  const [rows] = await db.query(
+    'SELECT * FROM user_theory_progress WHERE user_id = ? AND worship_id = ? ORDER BY section_id ASC',
+    [userId, worshipId],
+  );
+  return rows;
 }
 
 async function findTheoryProgressById(id, userId) {
@@ -116,21 +119,23 @@ async function saveTheoryProgress(userId, { worship_id, section_id, completed = 
   const conn = await db.getConnection();
   try {
     await conn.beginTransaction();
-    const [existing] = await conn.query('SELECT * FROM user_theory_progress WHERE user_id = ? AND worship_id = ? LIMIT 1', [userId, worship_id]);
+    const [existing] = await conn.query('SELECT * FROM user_theory_progress WHERE user_id = ? AND section_id = ? LIMIT 1', [userId, section_id]);
     if (existing.length === 0) {
       const [result] = await conn.query(
-        'INSERT INTO user_theory_progress (user_id, worship_id, section_id, completed, completed_at, created_at, updated_at) VALUES (?,?,?,?,?,NOW(3),NOW(3))',
-        [userId, worship_id, section_id, completed ? 1 : 0, completed_at],
+        'INSERT INTO user_theory_progress (user_id, worship_id, section_id, completed, completed_at, created_at, updated_at) VALUES (?,?,?,?,IF(?, COALESCE(?, NOW(3)), NULL),NOW(3),NOW(3))',
+        [userId, worship_id, section_id, completed ? 1 : 0, completed ? 1 : 0, completed_at],
       );
-      const data = await findTheoryProgressById(result.insertId, userId);
+      const [rows] = await conn.query('SELECT * FROM user_theory_progress WHERE id = ? AND user_id = ? LIMIT 1', [result.insertId, userId]);
+      const data = rows[0];
       await conn.commit();
       return data;
     }
     await conn.query(
-      'UPDATE user_theory_progress SET section_id = ?, completed = ?, completed_at = ?, updated_at = NOW(3) WHERE id = ?',
-      [section_id, completed ? 1 : 0, completed_at, existing[0].id],
+      'UPDATE user_theory_progress SET worship_id = ?, completed = ?, completed_at = IF(?, COALESCE(?, NOW(3)), NULL), updated_at = NOW(3) WHERE id = ?',
+      [worship_id, completed ? 1 : 0, completed ? 1 : 0, completed_at, existing[0].id],
     );
-    const data = await findTheoryProgressById(existing[0].id, userId);
+    const [rows] = await conn.query('SELECT * FROM user_theory_progress WHERE id = ? AND user_id = ? LIMIT 1', [existing[0].id, userId]);
+    const data = rows[0];
     await conn.commit();
     return data;
   } catch (error) {

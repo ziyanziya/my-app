@@ -4,7 +4,8 @@ const asyncHandler = require('../middlewares/asyncHandler');
 exports.register = asyncHandler(async (req, res) => {
   const payload = req.body;
   const result = await authService.register(payload);
-  res.status(201).json({ success: true, data: { user: result.user } });
+  // A new account must receive the same usable session as a signed-in account.
+  res.status(201).json({ success: true, data: result });
 });
 
 exports.login = asyncHandler(async (req, res) => {

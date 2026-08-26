@@ -1,12 +1,11 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import AuthShell from '@/components/auth-shell';
 import { AuthButton, AuthInput, AuthMessage, authTokens, SocialButton } from '@/components/auth-ui';
 import { getAuthApiBaseUrl, fetchWithTimeout } from '@/services/auth-api';
+import { saveAuthSession } from '@/services/auth-session';
 
-const AUTH_TOKEN_KEY = 'authToken';
 const emailIsValid = (value: string) => /^\S+@\S+\.\S+$/.test(value.trim());
 
 /** تحويل أي قيمة إلى نص آمن لعرضه في واجهة المستخدم */
@@ -44,11 +43,8 @@ export default function LoginScreen() {
       const result = await response.json().catch(() => ({}));
       if (!response.ok) return setError(toErrorString(result?.message ?? result?.error, 'تعذر تسجيل الدخول. حاول مرة أخرى.'));
 
-      const token = result?.data?.accessToken || result?.data?.refreshToken || 'dummy-token';
-      await AsyncStorage.setItem(AUTH_TOKEN_KEY, token);
       const name = result?.data?.user?.name;
-      if (name) await AsyncStorage.setItem('authUserName', name);
-      else await AsyncStorage.removeItem('authUserName');
+      await saveAuthSession(result?.data || {}, name);
       setSuccess('تم تسجيل الدخول بنجاح. أهلاً بعودتك.');
       await new Promise((resolve) => setTimeout(resolve, 500));
       router.replace('/');

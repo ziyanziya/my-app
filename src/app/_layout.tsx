@@ -23,6 +23,14 @@ export default function TabLayout() {
   }, []);
 
   useEffect(() => {
+    // Remove legacy completion cache that was not scoped to a user account.
+    AsyncStorage.getAllKeys().then((keys) => {
+      const legacyKeys = keys.filter((key) => key.startsWith('theory-completed-sections:'));
+      return legacyKeys.length ? AsyncStorage.multiRemove(legacyKeys) : undefined;
+    }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
     // Expo notification response APIs are native-only. Calling them on web
     // throws before the app can render.
     if (Platform.OS === 'web') return;

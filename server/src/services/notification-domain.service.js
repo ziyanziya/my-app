@@ -61,18 +61,27 @@ async function claimDueOccurrences() {
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
-    const [campaigns] = await connection.query(`SELECT * FROM notification_campaigns WHERE status = 'active' AND next_run_at <= NOW(3) ORDER BY next_run_at LIMIT 20 FOR UPDATE SKIP LOCKED`);
+    // Do not use `FOR UPDATE SKIP LOCKED`: MariaDB before 10.6 cannot parse it.
+    // This is deliberately a non-locking read.  A campaign is claimed below with
+    // a compare-and-set update, so two workers that read the same row cannot both
+    // advance it or create an occurrence for it.
+    const [campaigns] = await connection.query(`SELECT * FROM notification_campaigns WHERE status = 'active' AND next_run_at <= NOW(3) ORDER BY next_run_at LIMIT 20`);
     const occurrences = [];
     for (const campaign of campaigns) {
       const dueAt = new Date(campaign.next_run_at); const key = dueAt.toISOString();
-      const [insert] = await connection.query('INSERT IGNORE INTO notification_occurrences (campaign_id, occurrence_key, due_at, status, locked_until, attempts) VALUES (?, ?, ?, \'processing\', DATE_ADD(NOW(3), INTERVAL 2 MINUTE), 1)', [campaign.id, key, dueAt]);
-      if (insert.affectedRows) occurrences.push({ id: insert.insertId, ...campaign, due_at: dueAt });
       const recurrence = campaign.recurrence ? asJson(campaign.recurrence) : null;
-      if (!recurrence) await connection.query("UPDATE notification_campaigns SET status='completed', next_run_at=NULL WHERE id=?", [campaign.id]);
-      else {
+      let update;
+      if (!recurrence) {
+        [update] = await connection.query("UPDATE notification_campaigns SET status='completed', next_run_at=NULL WHERE id=? AND status='active' AND next_run_at=?", [campaign.id, campaign.next_run_at]);
+      } else {
         const unit = recurrence.frequency === 'weekly' ? 'WEEK' : recurrence.frequency === 'monthly' ? 'MONTH' : 'DAY';
-        await connection.query(`UPDATE notification_campaigns SET next_run_at = DATE_ADD(next_run_at, INTERVAL 1 ${unit}) WHERE id = ?`, [campaign.id]);
+        [update] = await connection.query(`UPDATE notification_campaigns SET next_run_at = DATE_ADD(next_run_at, INTERVAL 1 ${unit}) WHERE id = ? AND status='active' AND next_run_at=?`, [campaign.id, campaign.next_run_at]);
       }
+      // `affectedRows` is the optimistic-lock result.  The winner holds the
+      // campaign row lock until commit; only it may materialize this occurrence.
+      if (!update.affectedRows) continue;
+      const [insert] = await connection.query('INSERT INTO notification_occurrences (campaign_id, occurrence_key, due_at, status, locked_until, attempts) VALUES (?, ?, ?, \'processing\', DATE_ADD(NOW(3), INTERVAL 2 MINUTE), 1)', [campaign.id, key, dueAt]);
+      occurrences.push({ id: insert.insertId, ...campaign, due_at: dueAt });
     }
     await connection.commit(); return occurrences;
   } catch (error) { await connection.rollback(); throw error; } finally { connection.release(); }
@@ -101,9 +110,18 @@ async function deliverPushes() {
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
-    const [rows] = await connection.query(`SELECT p.id,d.token,r.title,r.body,r.data,r.id recipient_id FROM push_deliveries p JOIN user_push_devices d ON d.id=p.device_id JOIN notification_recipients r ON r.id=p.recipient_id WHERE p.status='queued' AND p.next_attempt_at<=NOW(3) AND (p.locked_until IS NULL OR p.locked_until<NOW(3)) LIMIT 100 FOR UPDATE SKIP LOCKED`);
+    // Same compatible optimistic-claim pattern as campaigns.  Every selected
+    // delivery is conditionally leased, then only successfully leased rows are sent.
+    const [candidates] = await connection.query(`SELECT p.id,d.token,r.title,r.body,r.data,r.id recipient_id FROM push_deliveries p JOIN user_push_devices d ON d.id=p.device_id JOIN notification_recipients r ON r.id=p.recipient_id WHERE p.status='queued' AND p.next_attempt_at<=NOW(3) AND (p.locked_until IS NULL OR p.locked_until<NOW(3)) LIMIT 100`);
+    const rows = [];
+    for (const candidate of candidates) {
+      const [claim] = await connection.query(`UPDATE push_deliveries
+        SET locked_until=DATE_ADD(NOW(3),INTERVAL 2 MINUTE), attempts=attempts+1
+        WHERE id=? AND status='queued' AND next_attempt_at<=NOW(3)
+          AND (locked_until IS NULL OR locked_until<NOW(3))`, [candidate.id]);
+      if (claim.affectedRows) rows.push(candidate);
+    }
     if (!rows.length) { await connection.commit(); return 0; }
-    await connection.query(`UPDATE push_deliveries SET locked_until=DATE_ADD(NOW(3),INTERVAL 2 MINUTE), attempts=attempts+1 WHERE id IN (${rows.map(() => '?').join(',')})`, rows.map(r => r.id));
     await connection.commit();
     const response = await fetch(EXPO_PUSH_URL, { method: 'POST', headers: { Accept: 'application/json', 'Accept-Encoding': 'gzip, deflate', 'Content-Type': 'application/json' }, body: JSON.stringify(rows.map(r => ({ to:r.token, title:r.title, body:r.body, sound:'default', data:{ ...(asJson(r.data) || {}), recipientId:String(r.recipient_id) } }))) });
     if (!response.ok) throw new Error(`Expo push rejected batch: ${response.status}`);

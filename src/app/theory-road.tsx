@@ -4,14 +4,13 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { getAuthApiBaseUrl } from '../services/auth-api';
+import { fetchWithAuth } from '../services/auth-session';
 import { getTheoryDisplayTheme } from '../constants/theory-display-theme';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type Section = { id: number; title: string; reward_points: number; order_index: number };
 type Status = 'locked' | 'available' | 'active' | 'completed';
 type Node = Section & { status: Status };
 const colors = { bg: '#1a0e14', surface: '#24161f', accent: '#d4a574', rose: '#8b1e38', text: '#f5e6d3', muted: '#a9918a', line: '#6f4354' };
-const completionKey = (worshipId: string) => `theory-completed-sections:${worshipId}`;
 
 function BookIcon() { return <Svg width={48} height={48} viewBox="0 0 24 24"><Path d="M3.5 5.5c2.7-1.3 5.3-1.1 8.5.7v12.1c-3.2-1.8-5.8-2-8.5-.7V5.5Zm17 0c-2.7-1.3-5.3-1.1-8.5.7v12.1c3.2-1.8 5.8-2 8.5-.7V5.5Z" fill="none" stroke={colors.text} strokeWidth="1.4" /><Path d="M15.5 8.5h3M15.5 11.5h3" stroke={colors.accent} strokeWidth="1.2" strokeLinecap="round" /></Svg>; }
 function Ring({ value }: { value: number }) { const r = 35; const c = 2 * Math.PI * r; return <View style={styles.ring}><Svg width={88} height={88}><Circle cx="44" cy="44" r={r} stroke="#4e2d3d" strokeWidth="7" fill="none" /><Circle cx="44" cy="44" r={r} stroke={colors.accent} strokeWidth="7" fill="none" strokeLinecap="round" strokeDasharray={`${c} ${c}`} strokeDashoffset={c * (1 - value / 100)} rotation="-90" origin="44,44" /></Svg><Text style={styles.ringText}>{value}%</Text></View>; }
@@ -35,10 +34,15 @@ export default function TheoryRoad() {
   useEffect(() => { (async () => { try { const r = await fetch(`${getAuthApiBaseUrl()}/theory-sections/worship/${worshipId}`); if (!r.ok) throw new Error('تعذر تحميل الأقسام.'); const p = await r.json(); setSections((Array.isArray(p.data) ? p.data : []).sort((a: Section, b: Section) => a.order_index - b.order_index)); } catch (e) { setError(e instanceof Error ? e.message : 'تعذر تحميل الأقسام.'); } })(); }, [worshipId]);
   useFocusEffect(useCallback(() => {
     let active = true;
-    AsyncStorage.getItem(completionKey(worshipId)).then((stored) => {
-      if (!active) return;
-      try { setCompletedIds(JSON.parse(stored || '[]')); } catch { setCompletedIds([]); }
-    });
+    fetchWithAuth(`${getAuthApiBaseUrl()}/users/progress/theory/${worshipId}`)
+      .then(async (response) => {
+        if (!response.ok) throw new Error('Unable to load theory progress');
+        const payload = await response.json();
+        if (!active) return;
+        const progress = Array.isArray(payload.data) ? payload.data : [];
+        setCompletedIds(progress.filter((item: { completed?: boolean | number | string }) => item.completed === true || Number(item.completed) === 1).map((item: { section_id: number }) => item.section_id));
+      })
+      .catch(() => { if (active) setCompletedIds([]); });
     return () => { active = false; };
   }, [worshipId]));
   // كل الأقسام القادمة من قاعدة البيانات متاحة للقراءة؛ الرمادي للمراحل الافتراضية فقط.
@@ -50,7 +54,6 @@ export default function TheoryRoad() {
     ...nodes,
     ...Array.from({ length: 6 }, (_, index) => ({ id: -(index + 1), title: '', reward_points: 0, order_index: nodes.length + index + 1, status: 'locked' as Status })),
   ], [nodes]);
-  const points = useMemo(() => sections.reduce((sum, s) => sum + Number(s.reward_points || 0), 0), [sections]);
   const pathHeight = Math.max(360, displayNodes.length * 118);
   const path = displayNodes.slice(1).map((_, i) => {
     const firstCenterY = 72 + i * 118;

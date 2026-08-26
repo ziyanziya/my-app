@@ -2,10 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getAuthApiBaseUrl } from '@/services/auth-api';
-
-const AUTH_TOKEN_KEY = 'authToken';
+import { clearAuthSession, fetchWithAuth } from '@/services/auth-session';
 
 type Profile = { name: string; email: string; phone?: string; role?: string };
 
@@ -20,18 +18,10 @@ export default function ProfileScreen() {
       setLoading(true);
       setError(null);
       try {
-        const token = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
-        if (!token) {
-          router.replace('/login');
-          return;
-        }
-
-        const response = await fetch(`${getAuthApiBaseUrl()}/user/profile`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const response = await fetchWithAuth(`${getAuthApiBaseUrl()}/user/profile`);
 
         if (response.status === 401) {
-          await AsyncStorage.multiRemove([AUTH_TOKEN_KEY, 'authUserName']);
+          await clearAuthSession();
           router.replace('/login');
           return;
         }
@@ -44,7 +34,11 @@ export default function ProfileScreen() {
 
         const result = await response.json();
         setUser(result?.data || null);
-      } catch {
+      } catch (cause) {
+        if (cause instanceof Error && cause.message === 'AUTH_REQUIRED') {
+          router.replace('/login');
+          return;
+        }
         setError('تعذر الاتصال بالخادم. تحقق من تشغيله ثم حاول مجددًا.');
       } finally {
         setLoading(false);

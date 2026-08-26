@@ -30,10 +30,12 @@ async function findLightRuleBySource(sourceScope, sourceKey) {
     );
     if (rows[0]) return rows[0];
   }
-  // fallback to generic scope rule where source_key is null or empty
+  // Support both legacy `generic` rules and the scoped defaults seeded as
+  // `generic_theory` / `generic_practical`.
+  const scopedGenericKey = `generic_${sourceScope}`;
   const [generic] = await db.query(
-    'SELECT * FROM light_rules WHERE source_scope = ? AND (source_key IS NULL OR source_key = "" OR source_key = "generic") AND is_active = 1 ORDER BY id ASC LIMIT 1',
-    [sourceScope],
+    'SELECT * FROM light_rules WHERE source_scope = ? AND (source_key IS NULL OR source_key = "" OR source_key = "generic" OR source_key = ?) AND is_active = 1 ORDER BY id ASC LIMIT 1',
+    [sourceScope, scopedGenericKey],
   );
   return generic[0] || null;
 }

@@ -1,12 +1,11 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import AuthShell from '@/components/auth-shell';
 import { AuthButton, AuthInput, AuthMessage, authTokens } from '@/components/auth-ui';
 import { getAuthApiBaseUrl, fetchWithTimeout } from '@/services/auth-api';
+import { saveAuthSession } from '@/services/auth-session';
 
-const AUTH_TOKEN_KEY = 'authToken';
 const emailIsValid = (value: string) => /^\S+@\S+\.\S+$/.test(value.trim());
 
 /** تحويل أي قيمة إلى نص آمن لعرضه في واجهة المستخدم */
@@ -48,9 +47,7 @@ export default function RegisterScreen() {
       const result = await response.json().catch(() => ({}));
       if (!response.ok) return setError(toErrorString(result?.message ?? result?.error, 'تعذر إنشاء الحساب. حاول مرة أخرى.'));
 
-      const token = result?.data?.accessToken || result?.data?.refreshToken || (result?.data?.user?.id ? String(result.data.user.id) : 'dummy-token');
-      await AsyncStorage.setItem(AUTH_TOKEN_KEY, token);
-      await AsyncStorage.setItem('authUserName', name.trim());
+      await saveAuthSession(result?.data || {}, result?.data?.user?.name || name.trim());
       setSuccess('تم إنشاء حسابك بنجاح. مرحبًا بك في الصراط.');
       await new Promise((resolve) => setTimeout(resolve, 500));
       router.replace('/');

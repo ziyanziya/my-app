@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const lightService = require('../services/light.service');
 
 async function getSettings(req, res, next) {
   try {
@@ -22,11 +23,14 @@ async function getSettings(req, res, next) {
       };
     });
 
+    const dailyGoal = await lightService.getDailyLightGoal();
+
     res.json({
       success: true,
       data: {
         streaks: streakRules,
-        worshipTree: worshipTree
+        worshipTree: worshipTree,
+        daily_goal: dailyGoal,
       }
     });
   } catch (err) {
@@ -38,7 +42,31 @@ async function updateSettings(req, res, next) {
   const conn = await db.getConnection();
   try {
     await conn.beginTransaction();
-    const { streaks, worshipTree } = req.body;
+    const { streaks, worshipTree, daily_goal } = req.body;
+
+    if (daily_goal !== undefined) {
+      const normalizedDailyGoal = Number(daily_goal);
+      if (!Number.isInteger(normalizedDailyGoal) || normalizedDailyGoal < 1 || normalizedDailyGoal > 100000) {
+        const error = new Error('هدف النور اليومي يجب أن يكون عدداً صحيحاً بين 1 و100000.');
+        error.status = 400;
+        throw error;
+      }
+
+      const [existing] = await conn.query(
+        "SELECT id FROM settings WHERE user_id IS NULL AND scope = 'global' AND setting_key = 'daily_light_goal' ORDER BY updated_at DESC, id DESC LIMIT 1",
+      );
+      if (existing[0]) {
+        await conn.query(
+          'UPDATE settings SET value = ?, description = ?, updated_at = NOW(3) WHERE id = ?',
+          [JSON.stringify(normalizedDailyGoal), 'الهدف اليومي للنور المعروض في إنجازات المستخدم', existing[0].id],
+        );
+      } else {
+        await conn.query(
+          "INSERT INTO settings (user_id, scope, setting_key, value, description) VALUES (NULL, 'global', 'daily_light_goal', ?, ?)",
+          [JSON.stringify(normalizedDailyGoal), 'الهدف اليومي للنور المعروض في إنجازات المستخدم'],
+        );
+      }
+    }
 
     // 1. Update streak rules
     if (streaks && Array.isArray(streaks)) {

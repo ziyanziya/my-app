@@ -36,6 +36,7 @@ import { apiFetch } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 
 type LightSettings = {
+  daily_goal?: number;
   streaks: { id?: number; slug: string; name: string; base_amount: number; source_scope?: string }[];
   worshipTree?: {
     id: number;
@@ -153,7 +154,7 @@ export default function LightSettingsPage() {
     }
   };
 
-  const handleChange = (category: keyof LightSettings, index: number, field: string, value: number) => {
+  const handleChange = (category: 'streaks', index: number, field: string, value: number) => {
     const updated = [...(settings[category] || [])] as any[];
     updated[index] = { ...updated[index], [field]: value };
     setSettings({ ...settings, [category]: updated });
@@ -192,6 +193,25 @@ export default function LightSettingsPage() {
     >
       {error && <Typography color="error" sx={{ mb: 2 }} variant="body1">{error}</Typography>}
       {success && <Typography color="success.main" sx={{ mb: 2 }} variant="body1">{success}</Typography>}
+
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ alignItems: { sm: 'center' } }}>
+          <Avatar sx={{ bgcolor: alpha('#d4a574', 0.2), color: '#d4a574' }}><TimelineRounded /></Avatar>
+          <Box sx={{ flex: 1 }}>
+            <Typography variant="h6" sx={{ fontWeight: 'bold' }}>هدف النور اليومي</Typography>
+            <Typography variant="body2" color="text.secondary">تصل دائرة إنجازات اليوم إلى 100% عند بلوغ هذا المقدار من النور المكتسب خلال اليوم.</Typography>
+          </Box>
+          <TextField
+            label="الهدف اليومي"
+            type="number"
+            size="small"
+            sx={{ width: { xs: '100%', sm: 190 } }}
+            value={settings.daily_goal ?? 100}
+            onChange={(event) => setSettings({ ...settings, daily_goal: Math.max(1, Math.floor(Number(event.target.value) || 1)) })}
+            slotProps={{ htmlInput: { min: 1, max: 100000, step: 1 }, input: { endAdornment: <Typography color="secondary" variant="caption">نور</Typography> } }}
+          />
+        </Stack>
+      </Paper>
 
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
         <Tabs value={tabValue} onChange={(_, v) => setTabValue(v)} textColor="secondary" indicatorColor="secondary" variant="scrollable" scrollButtons="auto">

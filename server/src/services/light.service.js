@@ -1,6 +1,8 @@
 const lightRepo = require('../repositories/light.repo');
 const db = require('../config/db');
 
+const DEFAULT_DAILY_LIGHT_GOAL = 100;
+
 const validScopes = [
   'prayer',
   'wheel',
@@ -68,10 +70,14 @@ async function deleteRule(id) {
 }
 
 async function getUserStats(userId) {
-  const stats = await lightRepo.getUserLightStats(userId);
+  const [stats, dailyGoal] = await Promise.all([
+    lightRepo.getUserLightStats(userId),
+    getDailyLightGoal(),
+  ]);
   const daily_awarded = await lightRepo.getTotalDailyAwarded(userId);
   if (stats) {
     stats.daily_awarded = daily_awarded;
+    stats.daily_goal = dailyGoal;
     return stats;
   }
   return {
@@ -79,6 +85,7 @@ async function getUserStats(userId) {
     current_balance: 0,
     total_awarded: 0,
     daily_awarded: daily_awarded,
+    daily_goal: dailyGoal,
     total_spent: 0,
     total_revoked: 0,
     award_count: 0,
@@ -88,6 +95,24 @@ async function getUserStats(userId) {
     last_awarded_at: null,
     last_spent_at: null,
   };
+}
+
+function normalizeDailyLightGoal(value) {
+  let storedValue = value;
+  try {
+    if (typeof value === 'string') storedValue = JSON.parse(value);
+  } catch {
+    return DEFAULT_DAILY_LIGHT_GOAL;
+  }
+  const parsed = Number(storedValue);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : DEFAULT_DAILY_LIGHT_GOAL;
+}
+
+async function getDailyLightGoal() {
+  const [rows] = await db.query(
+    "SELECT value FROM settings WHERE user_id IS NULL AND scope = 'global' AND setting_key = 'daily_light_goal' ORDER BY updated_at DESC, id DESC LIMIT 1",
+  );
+  return rows[0] ? normalizeDailyLightGoal(rows[0].value) : DEFAULT_DAILY_LIGHT_GOAL;
 }
 
 async function findRuleBySource(sourceScope, sourceKey) {
@@ -533,6 +558,7 @@ module.exports = {
   updateRule,
   deleteRule,
   getUserStats,
+  getDailyLightGoal,
   getUserTransactions,
   listAllTransactions,
   awardLightForUser,

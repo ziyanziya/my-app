@@ -3,12 +3,11 @@ import { ActivityIndicator, Animated, Modal, Pressable, ScrollView, StyleSheet, 
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import Svg, { Path } from 'react-native-svg';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getAuthApiBaseUrl } from '../services/auth-api';
+import { fetchWithAuth } from '../services/auth-session';
 
 type Section = { id: number; title: string; content: string; reward_points: number; order_index: number };
 const C = { bg: '#1a0e14', panel: '#24161f', rose: '#8b1e38', pink: '#c77a91', gold: '#d4a574', text: '#f5e6d3', muted: '#a9918a' };
-const completionKey = (worshipId: string) => `theory-completed-sections:${worshipId}`;
 
 const Book = () => <Svg width={38} height={38} viewBox="0 0 24 24"><Path d="M3.5 5.5c2.7-1.3 5.3-1.1 8.5.7v12.1c-3.2-1.8-5.8-2-8.5-.7V5.5Zm17 0c-2.7-1.3-5.3-1.1-8.5.7v12.1c3.2-1.8 5.8-2 8.5-.7V5.5Z" fill="none" stroke={C.text} strokeWidth="1.4" /></Svg>;
 
@@ -37,9 +36,17 @@ export default function TheorySection() {
   }, [worshipId]);
 
   useEffect(() => {
-    AsyncStorage.getItem(completionKey(worshipId)).then((stored) => {
-      try { setCompletedIds(JSON.parse(stored || '[]')); } catch { setCompletedIds([]); }
-    });
+    let active = true;
+    fetchWithAuth(`${getAuthApiBaseUrl()}/users/progress/theory/${worshipId}`)
+      .then(async (response) => {
+        if (!response.ok) throw new Error('Unable to load theory progress');
+        const payload = await response.json();
+        if (!active) return;
+        const progress = Array.isArray(payload.data) ? payload.data : [];
+        setCompletedIds(progress.filter((item: { completed?: boolean | number | string }) => item.completed === true || Number(item.completed) === 1).map((item: { section_id: number }) => item.section_id));
+      })
+      .catch(() => { if (active) setCompletedIds([]); });
+    return () => { active = false; };
   }, [worshipId]);
 
   const index = all.findIndex((item) => item.id === id);
@@ -47,37 +54,26 @@ export default function TheorySection() {
   const next = index >= 0 ? all[index + 1] : null;
   const percent = all.length ? Math.round((completedIds.filter((completedId) => all.some((item) => item.id === completedId)).length / all.length) * 100) : 0;
   const completeReading = async () => {
-    const stored = await AsyncStorage.getItem(completionKey(worshipId));
-    const completed = new Set<number>(JSON.parse(stored || '[]'));
-    completed.add(id);
-    await AsyncStorage.setItem(completionKey(worshipId), JSON.stringify([...completed]));
-    setCompletedIds([...completed]);
-
     let awarded = section?.reward_points || 15;
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (token) {
-        const res = await fetch(`${getAuthApiBaseUrl()}/users/progress/theory`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            worship_id: Number(worshipId),
-            section_id: id,
-            completed: 1,
-          }),
-        });
-        if (res.ok) {
-          const resJson = await res.json();
-          if (resJson.data && resJson.data.awardedPoints !== undefined) {
-             awarded = resJson.data.awardedPoints;
-          }
-        }
+      const res = await fetchWithAuth(`${getAuthApiBaseUrl()}/users/progress/theory`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ worship_id: Number(worshipId), section_id: id, completed: 1 }),
+      });
+      if (!res.ok) {
+        setErr('تعذر حفظ إتمام القراءة. حاول مرة أخرى.');
+        return;
+      }
+      const resJson = await res.json();
+      setCompletedIds((current) => Array.from(new Set([...current, id])));
+      if (resJson.data?.awardedPoints !== undefined) {
+        awarded = resJson.data.awardedPoints;
       }
     } catch (e) {
       console.warn('Could not sync theory progress with backend:', e);
+      setErr('تعذر حفظ إتمام القراءة. تحقق من اتصالك ثم حاول مرة أخرى.');
+      return;
     }
 
     if (awarded > 0 && section) {
@@ -91,12 +87,14 @@ export default function TheorySection() {
       ]).start();
     } else {
       setShowReward(false);
-      next ? router.replace({ pathname: '/theory-section', params: { worshipId, sectionId: String(next.id) } }) : router.back();
+      if (next) router.replace({ pathname: '/theory-section', params: { worshipId, sectionId: String(next.id) } });
+      else router.back();
     }
   };
   const continueAfterReward = () => {
     setShowReward(false);
-    next ? router.replace({ pathname: '/theory-section', params: { worshipId, sectionId: String(next.id) } }) : router.back();
+    if (next) router.replace({ pathname: '/theory-section', params: { worshipId, sectionId: String(next.id) } });
+    else router.back();
   };
 
   if (err || !section) return <SafeAreaView style={s.safe}><View style={s.state}>{err ? <Text style={s.stateText}>{err}</Text> : <ActivityIndicator color={C.gold} />}</View></SafeAreaView>;

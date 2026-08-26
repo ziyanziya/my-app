@@ -41,6 +41,15 @@ async function getTheoryProgress(userId, worshipId) {
 }
 
 async function saveTheoryProgress(userId, payload) {
+  const [sectionRows] = await db.query(
+    'SELECT id, worship_id FROM theory_sections WHERE id = ? AND worship_id = ? LIMIT 1',
+    [payload.section_id, payload.worship_id],
+  );
+  if (!sectionRows[0]) {
+    const err = new Error('Theory section does not belong to this worship');
+    err.status = 400;
+    throw err;
+  }
   const data = await userRepo.saveTheoryProgress(userId, payload);
   let awardedPoints = 0;
 

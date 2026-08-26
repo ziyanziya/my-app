@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -6,8 +6,8 @@ import { useVideoPlayer, VideoView } from 'expo-video';
 import type { VideoSource } from 'expo-video';
 import Svg, { Path } from 'react-native-svg';
 import { getAuthApiBaseUrl } from '../services/auth-api';
+import { clearAuthSession, fetchWithAuth } from '../services/auth-session';
 import { getTheoryDisplayTheme } from '../constants/theory-display-theme';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type PracticalMedia = { id: number; url: string; title: string | null; original_name: string | null };
 type PracticalStep = {
@@ -27,7 +27,7 @@ function VideoIcon() {
   return <Svg width={42} height={42} viewBox="0 0 24 24"><Path d="M4 6.5h11.5v11H4zM15.5 10l4.5-2.5v9L15.5 14" fill="none" stroke="#f5e6d3" strokeWidth={1.35} strokeLinejoin="round" /></Svg>;
 }
 
-function InAppVideoPlayer({ media, onClose }: { media: PracticalMedia; onClose: () => void }) {
+function InAppVideoPlayer({ media, onClose, onWatchComplete }: { media: PracticalMedia; onClose: () => void; onWatchComplete: () => void }) {
   const url = resolveMediaUrl(media.url);
   const source: VideoSource = {
     uri: url,
@@ -35,12 +35,25 @@ function InAppVideoPlayer({ media, onClose }: { media: PracticalMedia; onClose: 
     metadata: { title: media.title || media.original_name || 'فيديو تعليمي' },
   };
   const player = useVideoPlayer(source, (videoPlayer) => {
+    videoPlayer.timeUpdateEventInterval = 1;
     try {
       videoPlayer.play();
     } catch {
       // Ignore autoplay issues on some devices; the player can still be used manually.
     }
   });
+  const hasReportedCompletion = useRef(false);
+
+  useEffect(() => {
+    const subscription = player.addListener('timeUpdate', ({ currentTime }) => {
+      const duration = Number(player.duration);
+      if (!hasReportedCompletion.current && Number.isFinite(duration) && duration > 0 && currentTime / duration >= 0.9) {
+        hasReportedCompletion.current = true;
+        onWatchComplete();
+      }
+    });
+    return () => subscription.remove();
+  }, [onWatchComplete, player]);
 
   const handleClose = () => {
     try {
@@ -84,6 +97,7 @@ function VideoCardPreview({
   onOpen,
   onInlineToggle,
   onMaximize,
+  onWatchComplete,
 }: {
   media: PracticalMedia;
   isPlaying: boolean;
@@ -91,6 +105,7 @@ function VideoCardPreview({
   onOpen: () => void;
   onInlineToggle: () => void;
   onMaximize: () => void;
+  onWatchComplete: () => void;
 }) {
   const url = resolveMediaUrl(media.url);
   const source: VideoSource = {
@@ -100,6 +115,7 @@ function VideoCardPreview({
   };
 
   const player = useVideoPlayer(source, (videoPlayer) => {
+    videoPlayer.timeUpdateEventInterval = 1;
     try {
       videoPlayer.muted = !isInline;
       if (isInline) {
@@ -111,6 +127,18 @@ function VideoCardPreview({
       // Some versions require the player to be created but not actively playing in preview mode.
     }
   });
+  const hasReportedCompletion = useRef(false);
+
+  useEffect(() => {
+    const subscription = player.addListener('timeUpdate', ({ currentTime }) => {
+      const duration = Number(player.duration);
+      if (!hasReportedCompletion.current && Number.isFinite(duration) && duration > 0 && currentTime / duration >= 0.9) {
+        hasReportedCompletion.current = true;
+        onWatchComplete();
+      }
+    });
+    return () => subscription.remove();
+  }, [onWatchComplete, player]);
 
   const playCurrentPlayer = () => {
     try {
@@ -215,10 +243,9 @@ export default function PracticalRoad() {
     let active = true;
     (async () => {
       try {
-        const token = await AsyncStorage.getItem('authToken');
         const [stepsRes, progRes] = await Promise.all([
           fetch(`${getAuthApiBaseUrl()}/practical-steps/worship/${worshipId}`),
-          token ? fetch(`${getAuthApiBaseUrl()}/practical-steps/progress/${worshipId}`, { headers: { Authorization: `Bearer ${token}` } }) : Promise.resolve(null),
+          fetchWithAuth(`${getAuthApiBaseUrl()}/practical-steps/progress/${worshipId}`).catch(() => null),
         ]);
 
         if (!stepsRes.ok) throw new Error('تعذر تحميل الأقسام التطبيقية.');
@@ -242,29 +269,34 @@ export default function PracticalRoad() {
 
   const handleCompleteStep = async (stepId: number, rewardPoints: number) => {
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (token) {
-        const res = await fetch(`${getAuthApiBaseUrl()}/practical-steps/${stepId}/complete`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        if (res.ok) {
-          const resJson = await res.json();
-          setCompletedStepIds((prev) => Array.from(new Set([...prev, stepId])));
-          const awarded = resJson.data?.awardedPoints !== undefined ? resJson.data.awardedPoints : (rewardPoints || 25);
-          if (awarded > 0) {
-            setRewardAmount(awarded);
-          }
-        }
-      } else {
-        setCompletedStepIds((prev) => Array.from(new Set([...prev, stepId])));
-        setRewardAmount(rewardPoints || 25);
+      const res = await fetchWithAuth(`${getAuthApiBaseUrl()}/practical-steps/${stepId}/complete`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+      });
+      if (res.status === 401) {
+        await clearAuthSession();
+        setError('انتهت جلسة الدخول. سجّل الدخول مرة أخرى لحفظ تقدمك.');
+        router.replace('/login');
+        return;
       }
-    } catch (e) {
-      console.warn('Error completing practical step:', e);
+      if (!res.ok) {
+        setError('تعذر حفظ إتمام الخطوة. حاول مرة أخرى.');
+        return;
+      }
+      const resJson = await res.json();
+      setCompletedStepIds((prev) => Array.from(new Set([...prev, stepId])));
+      const awarded = resJson.data?.awardedPoints !== undefined ? resJson.data.awardedPoints : (rewardPoints || 25);
+      if (awarded > 0) {
+        setRewardAmount(awarded);
+      }
+    } catch {
+      setError('يلزم تسجيل الدخول لإتمام الخطوة وحفظ تقدمك.');
+      router.replace('/login');
+    }
+  };
+
+  const completeStepAfterViewing = (step: PracticalStep) => {
+    if (!completedStepIds.includes(step.id)) {
+      void handleCompleteStep(step.id, step.reward_points);
     }
   };
 
@@ -316,8 +348,11 @@ export default function PracticalRoad() {
                       isPlaying={isPlaying}
                       isInline={isInline}
                       onOpen={() => setActiveVideoId((current) => current === media.id ? null : media.id)}
-                      onInlineToggle={() => setActiveVideoId((current) => current === media.id ? null : media.id)}
+                      onInlineToggle={() => {
+                        setActiveVideoId((current) => current === media.id ? null : media.id);
+                      }}
                       onMaximize={() => setSelectedMedia(media)}
+                      onWatchComplete={() => completeStepAfterViewing(step)}
                     />
                     {step.description ? <Text style={[styles.videoDescription, { color: theme.muted }]}>{step.description}</Text> : null}
                   </View>
@@ -335,7 +370,10 @@ export default function PracticalRoad() {
           );
         })}
       </ScrollView>
-      {selectedMedia ? <InAppVideoPlayer media={selectedMedia} onClose={() => setSelectedMedia(null)} /> : null}
+      {selectedMedia ? <InAppVideoPlayer media={selectedMedia} onClose={() => setSelectedMedia(null)} onWatchComplete={() => {
+        const step = steps.find((item) => item.media?.some((media) => media.id === selectedMedia.id));
+        if (step) completeStepAfterViewing(step);
+      }} /> : null}
 
       {rewardAmount !== null ? (
         <View style={styles.rewardBackdrop}>
