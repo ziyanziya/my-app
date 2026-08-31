@@ -129,16 +129,6 @@ const reverseTextDirectionKeys = new Set([
 ]);
 
 export async function loadPrayerWheelEventsConfig(): Promise<PrayerWheelEventConfig[]> {
-  const prayerEventIds: Record<string, number> = {
-    maghribPrayer: 20,
-    ishaPrayer: 40,
-    fajrPrayer: 110,
-    dhuhrPrayer: 180,
-    asrPrayer: 230,
-  };
-
-  const staticPrayerEvents = prayerWheelConfig.events.filter((event) => Object.prototype.hasOwnProperty.call(prayerEventIds, event.id));
-
   // ── Timeout guard: abort if server doesn't respond within 5 seconds ──
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 5000);
@@ -173,17 +163,8 @@ export async function loadPrayerWheelEventsConfig(): Promise<PrayerWheelEventCon
         worshipId: getWorshipIdForWheelKey(worshipLookup, row.slug),
       }));
 
-    const merged = [
-      ...dbEvents.map((event) => ({ event, sortOrder: event.sortOrder })),
-      ...staticPrayerEvents.map((event) => ({
-        event: {
-          ...event,
-          worshipId: getWorshipIdForWheelKey(worshipLookup, event.id),
-        },
-        sortOrder: prayerEventIds[event.id],
-      })),
-    ].sort((a, b) => a.sortOrder - b.sortOrder);
-
+    const merged = [...dbEvents.map((event) => ({ event, sortOrder: event.sortOrder }))].sort((a, b) => a.sortOrder - b.sortOrder);
+    
     return merged.map((item) => item.event);
   } catch (_err) {
     // Server unreachable or timed-out — silently fall back to static config

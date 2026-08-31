@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, ImageBackground, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, ImageBackground, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
+import notifee from '@notifee/react-native';
 import { PrayerService } from '../services/prayer.service';
 import AdhanService, { AdhanPreferences, PrayerKey } from '../services/adhan.service';
 import { getAuthApiBaseUrl } from '../services/auth-api';
@@ -41,7 +42,27 @@ export default function PrayersPage() {
 
   useEffect(() => {
     AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(preferences));
-    if (preferences.enabled) AdhanService.startAdhanScheduler(preferences); else AdhanService.stopAdhanScheduler();
+    if (preferences.enabled) {
+      AdhanService.startAdhanScheduler(preferences);
+      
+      // Check battery optimization for Android
+      if (Platform.OS === 'android') {
+        notifee.isBatteryOptimizationEnabled().then((enabled) => {
+          if (enabled) {
+            Alert.alert(
+              'تنبيه هام',
+              'لضمان عمل الأذان في موعده الدقيق، يجب استثناء التطبيق من تحسينات البطارية.',
+              [
+                { text: 'إلغاء', style: 'cancel' },
+                { text: 'الذهاب للإعدادات', onPress: () => notifee.openBatteryOptimizationSettings() },
+              ]
+            );
+          }
+        });
+      }
+    } else {
+      AdhanService.stopAdhanScheduler();
+    }
   }, [preferences]);
 
   const choose = (url: string) => {

@@ -1,6 +1,6 @@
 import { Slot, router } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { ImageBackground, Platform, View } from 'react-native';
+import { I18nManager, ImageBackground, Platform, View } from 'react-native';
 import { useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppBottomNavigation } from '../components/app-bottom-navigation';
@@ -8,8 +8,22 @@ import AdhanService from '../services/adhan.service';
 import { requestAppPermissions } from '../services/permissions.service';
 import { NotificationManager } from '../services/notification_manager';
 import * as Notifications from 'expo-notifications';
+import { registerBackgroundTasks } from '../services/background_task';
+
+// ─── Force LTR layout globally ───────────────────────────────────────────────
+// The browser always renders LTR (left → right). On Arabic-locale devices,
+// React Native automatically enables RTL which mirrors the entire layout.
+// We override that here so phone and browser behave identically.
+if (I18nManager.isRTL) {
+  I18nManager.allowRTL(false);
+  I18nManager.forceRTL(false);
+}
+// ─────────────────────────────────────────────────────────────────────────────
 
 const APP_BACKGROUND = require('../../assets/images/auth/islamic-auth-background.png');
+
+// Register background tasks for Notifee and TrackPlayer (Must be outside React components)
+registerBackgroundTasks();
 
 export default function TabLayout() {
   useEffect(() => {

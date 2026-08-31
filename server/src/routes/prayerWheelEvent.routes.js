@@ -7,6 +7,8 @@ const validator = require('../validators/prayerWheelEvent.validator');
 const router = express.Router();
 
 router.get('/', controller.list);
+router.get('/settings', controller.getSettings);
+router.post('/settings', authenticate, requireRole('admin'), controller.saveSettings);
 router.put('/:id(\\d+)', authenticate, requireRole('admin'), validate(validator.update), controller.update);
 router.post('/reorder', authenticate, requireRole('admin'), validate(validator.reorder), controller.reorder);
 

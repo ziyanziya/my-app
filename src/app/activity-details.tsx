@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, ImageBackground, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getAuthApiBaseUrl } from '../services/auth-api';
 import Svg, { Path } from 'react-native-svg';
 
@@ -87,24 +88,46 @@ function PulsingTheoryOrb({ section, worshipId, index }: { section: TheorySectio
 }
 
 export default function ActivityDetailsScreen() {
-  const params = useLocalSearchParams<{ worshipId?: string; title?: string; time?: string; endTime?: string }>();
+  const params = useLocalSearchParams<{ worshipId?: string; title?: string; time?: string; startTimeIso?: string; endTime?: string }>();
   const [now, setNow] = useState(() => Date.now());
   const [activeSide] = useState<'theoretical' | 'practical' | null>(null);
+  const [isCompleted, setIsCompleted] = useState(false);
+  const [showToast, setShowToast] = useState(false);
+  const toastOpacity = useMemo(() => new Animated.Value(0), []);
   const [theorySections, setTheorySections] = useState<TheorySectionSummary[]>([]);
   const [practicalSteps, setPracticalSteps] = useState<Array<{ id: number; title: string; description: string; required_days: number; reward_points: number; order_index: number; media?: PracticalMedia[] }>>([]);
   const [loadingContent, setLoadingContent] = useState(false);
   const [contentError, setContentError] = useState('');
+
   const title = params.title || 'العبادة';
   const startTime = params.time || '--:--';
   const worshipId = params.worshipId ?? null;
   const isNumericWorshipId = worshipId !== null && /^[0-9]+$/.test(worshipId);
   const insets = useSafeAreaInsets();
 
+  // ── Key used to persist completion per worship per day ────────────
+  // Format: completed:worshipId:YYYY-MM-DD  → resets each new day
+  const completionKey = useMemo(() => {
+    if (!worshipId) return null;
+    const today = new Date().toISOString().slice(0, 10);
+    return `worship-completed:${worshipId}:${today}`;
+  }, [worshipId]);
+
+  // ── Tick clock every second ───────────────────────────────────────
   useEffect(() => {
     const interval = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(interval);
   }, []);
 
+  // ── Load persisted completion state on mount ──────────────────────
+  useEffect(() => {
+    if (!completionKey) return;
+    AsyncStorage.getItem(completionKey).then((val) => {
+      if (val === 'true') setIsCompleted(true);
+    }).catch(() => {});
+  }, [completionKey]);
+
+  // ── Fetch theory + practical content ─────────────────────────────
   useEffect(() => {
     if (!worshipId || !isNumericWorshipId) {
       setTheorySections([]);
@@ -144,6 +167,63 @@ export default function ActivityDetailsScreen() {
   }, [worshipId, isNumericWorshipId]);
 
   const remainingTime = useMemo(() => formatRemainingTime(params.endTime, now), [now, params.endTime]);
+
+  // ── Check if worship window has expired ──────────────────────────
+  // isExpired = true when current time is past endTime
+  const isExpired = useMemo(() => {
+    if (!params.endTime) return false;
+    const end = new Date(params.endTime).getTime();
+    // The formatRemainingTime adds 24h when negative — we detect expiry directly
+    return now >= end;
+  }, [now, params.endTime]);
+
+  // ── Check if worship hasn't started yet ──────────────────────────
+  const isNotStarted = useMemo(() => {
+    if (!params.startTimeIso) return false;
+    const start = new Date(params.startTimeIso).getTime();
+    return now < start;
+  }, [now, params.startTimeIso]);
+
+  // ── Button is disabled if completed, expired, or not started ───────
+  const isButtonDisabled = isCompleted || isExpired || isNotStarted;
+
+  // ── Button label logic ────────────────────────────────────────────
+  const buttonLabel = isCompleted
+    ? 'لقد أتممت هذه العبادة'
+    : isNotStarted
+    ? 'لم يحن وقت العبادة'
+    : isExpired
+    ? 'انتهى وقت العبادة'
+    : 'أتممت العبادة';
+
+  const buttonMark = isCompleted ? '✓✓' : (isExpired || isNotStarted) ? '✕' : '✓';
+
+  // ── Completion handler: persist → toast → go home ─────────────────
+  const mounted = useRef(true);
+  useEffect(() => {
+    return () => { mounted.current = false; };
+  }, []);
+
+  const handleComplete = () => {
+    if (isButtonDisabled) return;
+    setIsCompleted(true);
+    // Persist so re-entering the screen shows completed state
+    if (completionKey) {
+      AsyncStorage.setItem(completionKey, 'true').catch(() => {});
+    }
+    setShowToast(true);
+    toastOpacity.setValue(0);
+    Animated.sequence([
+      Animated.timing(toastOpacity, { toValue: 1, duration: 400, useNativeDriver: true }),
+      Animated.delay(1800),
+      Animated.timing(toastOpacity, { toValue: 0, duration: 500, useNativeDriver: true }),
+    ]).start(({ finished }) => {
+      if (mounted.current && finished) {
+        setShowToast(false);
+        router.replace('/');
+      }
+    });
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -201,10 +281,6 @@ export default function ActivityDetailsScreen() {
             </Pressable>
           </View>
 
-          <View style={styles.contentSection}>
-            <Text style={styles.contentTitle}>عن هذه العبادة</Text>
-            <Text style={styles.placeholderText}>هذه المساحة مخصصة للمحتوى الذي ستضيفه لاحقًا.</Text>
-          </View>
 
           {activeSide === 'theoretical' && (
             <View style={styles.expandedSection}>
@@ -256,12 +332,32 @@ export default function ActivityDetailsScreen() {
             </View>
           )}
 
-          <Pressable style={styles.completeButton}>
-            <Text style={styles.completeText}>أتممت العبادة</Text>
-            <Text style={styles.completeMark}>✓</Text>
+          <Pressable
+            style={[
+              styles.completeButton,
+              isCompleted && styles.completeButtonDone,
+              (isExpired || isNotStarted) && !isCompleted && styles.completeButtonExpired,
+            ]}
+            onPress={handleComplete}
+            disabled={isButtonDisabled}
+          >
+            {isButtonDisabled && <View style={styles.completedOverlay} />}
+            <Text style={styles.completeText}>{buttonLabel}</Text>
+            <Text style={styles.completeMark}>{buttonMark}</Text>
           </Pressable>
         </View>
       </ScrollView>
+
+      {/* ── Motivational toast ───────────────────────────────────── */}
+      {showToast && (
+        <Animated.View style={[styles.toastOverlay, { opacity: toastOpacity }]} pointerEvents="none">
+          <View style={styles.toastCard}>
+            <Text style={styles.toastStar}>✦</Text>
+            <Text style={styles.toastText}>بارك الله فيك{'\n'}واجعلها في ميزان حسناتك</Text>
+            <Text style={styles.toastStar}>✦</Text>
+          </View>
+        </Animated.View>
+      )}
       </ImageBackground>
     </SafeAreaView>
   );
@@ -317,4 +413,61 @@ const styles = StyleSheet.create({
   theoryOrb: { width: '100%', height: '100%', borderRadius: 999, backgroundColor: '#5a1020', borderWidth: 2, borderColor: '#d4a574', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 13, shadowColor: '#4b0f16', shadowOpacity: 0.26, shadowRadius: 9, shadowOffset: { width: 0, height: 5 }, elevation: 5 },
   theoryOrbTitle: { color: '#f5e6d3', fontSize: 11, lineHeight: 16, fontWeight: '800', textAlign: 'center', writingDirection: 'rtl' },
   completeMark: { color: '#f5e6d3', fontSize: 14, fontWeight: '700' },
+  // ── Completed state ──────────────────────────────────────────────
+  completeButtonDone: {
+    backgroundColor: '#3a0a14',
+    borderWidth: 1.5,
+    borderColor: '#7a3040',
+    opacity: 0.72,
+  },
+  // When worship time window has expired without completion
+  completeButtonExpired: {
+    backgroundColor: '#2a2a2a',
+    borderWidth: 1.5,
+    borderColor: '#555',
+    opacity: 0.60,
+  },
+  completedOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    borderRadius: 6,
+  },
+  // ── Motivational toast ───────────────────────────────────────────
+  toastOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(10, 2, 6, 0.72)',
+    zIndex: 999,
+  },
+  toastCard: {
+    marginHorizontal: 32,
+    paddingVertical: 30,
+    paddingHorizontal: 28,
+    borderRadius: 20,
+    backgroundColor: '#2a0812',
+    borderWidth: 1.5,
+    borderColor: '#d4a574',
+    alignItems: 'center',
+    gap: 12,
+    shadowColor: '#d4a574',
+    shadowOpacity: 0.4,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 12,
+  },
+  toastText: {
+    color: '#f5e6d3',
+    fontSize: 20,
+    fontWeight: '800',
+    fontFamily: 'Amiri_400Regular',
+    textAlign: 'center',
+    writingDirection: 'rtl',
+    lineHeight: 34,
+    letterSpacing: 0.5,
+  },
+  toastStar: {
+    color: '#d4a574',
+    fontSize: 18,
+  },
 });

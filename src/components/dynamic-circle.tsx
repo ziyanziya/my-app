@@ -219,7 +219,7 @@ export function DynamicCircle({
           onPress={onPressCurrent}
           activeOpacity={0.7}
         >
-          <Text style={styles.centerButtonText}>اضغط لعرض التفاصيل</Text>
+          <Text style={styles.centerButtonText}>الدخول</Text>
         </TouchableOpacity>
       </View>
 

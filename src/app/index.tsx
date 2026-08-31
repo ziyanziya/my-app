@@ -317,10 +317,12 @@ const PrayerCircle = ({
   currentTime,
   wheelItems,
   onDetailsPress,
+  pulseDurationMs = 10 * 60 * 1000,
 }: {
   currentTime: Date;
   wheelItems: { id?: string; name: string; time?: string; startTime?: Date; endTime?: Date; isActive?: boolean; reverseTextDirection?: boolean; worshipId?: number | string }[];
-  onDetailsPress: (item: { id?: string; name: string; time?: string; endTime?: Date; worshipId?: number | string }) => void;
+  onDetailsPress: (item: { id?: string; name: string; time?: string; startTime?: Date; endTime?: Date; worshipId?: number | string }) => void;
+  pulseDurationMs?: number;
 }) => {
   const { width } = useWindowDimensions();
   const circleSize = Math.min(width * 0.94, 390);
@@ -365,7 +367,7 @@ const PrayerCircle = ({
   const pulsingItemIndexes = currentItemIndexes.filter((index) => {
     const item = wheelItems[index];
     return item.startTime !== undefined
-      && currentTimestamp - item.startTime.getTime() < PULSE_DURATION_MS
+      && currentTimestamp - item.startTime.getTime() < pulseDurationMs
       && !suppressedPulseIds.has(item.id ?? `index-${index}`);
   });
   const hasPulsingItem = pulsingItemIndexes.length > 0;
@@ -677,9 +679,13 @@ const PrayerCircle = ({
                <TouchableOpacity
                  activeOpacity={0.8}
                  style={circleStyles.detailsButton}
-                 onPress={() => onDetailsPress(item)}
+                 onPress={() => {
+                   const id = item.id ?? `index-${index}`;
+                   setSuppressedPulseIds((currentIds) => new Set(currentIds).add(id));
+                   onDetailsPress(item);
+                 }}
                >
-                 <Text style={circleStyles.detailsText}>عرض التفاصيل</Text>
+                 <Text style={circleStyles.detailsText}>الدخول</Text>
                </TouchableOpacity>
              )}
            </View>
@@ -870,6 +876,7 @@ export default function PrayerHomeScreen() {
   const [prayerTimes, setPrayerTimes] = useState<PrayerTimesResult | null>(null);
   const [prayerError, setPrayerError] = useState<string | null>(null);
   const [wheelItems, setWheelItems] = useState<DailyWheelItem[]>([]);
+  const [pulseDurationMs, setPulseDurationMs] = useState(10 * 60 * 1000);
   const [isAuthChecked, setIsAuthChecked] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userName, setUserName] = useState<string | null>(null);
@@ -1016,7 +1023,17 @@ export default function PrayerHomeScreen() {
         ]);
         const times = await PrayerService.getTodayPrayerTimes();
         setPrayerTimes(times);
-        const dynamicEvents = await loadPrayerWheelEventsConfig();
+        
+        // Fetch wheel events and the global pulse duration setting in parallel
+        const [dynamicEvents, settingsRes] = await Promise.all([
+          loadPrayerWheelEventsConfig(),
+          fetch(`${getAuthApiBaseUrl()}/prayer-wheel-events/settings`).then(res => res.json()).catch(() => ({}))
+        ]);
+
+        if (settingsRes?.data?.pulse_duration_minutes) {
+          setPulseDurationMs(settingsRes.data.pulse_duration_minutes * 60 * 1000);
+        }
+
         setWheelItems(generateDailyWheel(times, { defaultDurationMinutes: 15, events: dynamicEvents }));
         setPrayerError(null);
       } catch (error) {
@@ -1088,6 +1105,7 @@ export default function PrayerHomeScreen() {
       >
         <PrayerCircle
           currentTime={currentTime}
+          pulseDurationMs={pulseDurationMs}
           onDetailsPress={(item) => {
             router.push({
               pathname: '/activity-details',
@@ -1095,6 +1113,7 @@ export default function PrayerHomeScreen() {
                 worshipId: String(item.worshipId ?? item.id),
                 title: item.name,
                 time: item.time ?? '',
+                startTimeIso: item.startTime?.toISOString() ?? '',
                 endTime: item.endTime?.toISOString() ?? '',
               },
             });
@@ -1543,6 +1562,7 @@ const circleStyles = StyleSheet.create({
     color: '#f5e6d3',
     lineHeight: 14,
     fontWeight: '700',
+    fontFamily: 'Amiri_400Regular',
     writingDirection: 'rtl',
     textAlign: 'center',
   },

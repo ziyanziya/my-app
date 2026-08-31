@@ -224,6 +224,7 @@ export default function WorshipsScreen() {
                                 worshipId: String(item.id),
                                 title: label,
                                 time: formatWorshipTime(displayTime),
+                                startTimeIso: item.computedTime?.toISOString() ?? '',
                                 endTime: item.computedEndTime?.toISOString() ?? '',
                               },
                             });

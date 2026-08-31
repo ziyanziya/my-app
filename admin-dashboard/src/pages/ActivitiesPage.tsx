@@ -43,16 +43,21 @@ export default function ActivitiesPage() {
   const { session } = useAuth();
   const [rows, setRows] = useState<ActivityRow[]>([]);
   const [savedRows, setSavedRows] = useState<ActivityRow[]>([]);
+  const [pulseDuration, setPulseDuration] = useState<number>(10);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const load = async () => {
     setLoading(true);
     try {
-      const res = await apiFetch<{ data: ActivityRow[] }>('/prayer-wheel-events', {}, session?.accessToken);
+      const [res, settingsRes] = await Promise.all([
+        apiFetch<{ data: ActivityRow[] }>('/prayer-wheel-events', {}, session?.accessToken),
+        apiFetch<{ data: { pulse_duration_minutes: number } }>('/prayer-wheel-events/settings', {}, session?.accessToken)
+      ]);
       const items = res.data.map((row, index) => ({ ...row, sort_order: row.sort_order ?? index + 1 }));
       setRows(items);
       setSavedRows(items);
+      setPulseDuration(settingsRes.data.pulse_duration_minutes || 10);
     } catch (e) {
       console.error(e);
     } finally {
@@ -105,6 +110,10 @@ export default function ActivitiesPage() {
         method: 'POST',
         body: JSON.stringify(rows.map((r) => ({ id: r.id, sort_order: r.sort_order }))),
       }, session?.accessToken);
+      await apiFetch('/prayer-wheel-events/settings', {
+        method: 'POST',
+        body: JSON.stringify({ pulse_duration_minutes: pulseDuration }),
+      }, session?.accessToken);
       await load();
     } catch (e) {
       console.error(e);
@@ -115,9 +124,22 @@ export default function ActivitiesPage() {
   };
 
   return (
-    <PageShell title="الأنشطة" subtitle="إدارة شرائح العجلة؛ الصلوات الخمس تُحسب تلقائيًا ولا تظهر هنا.">
+    <PageShell title="الأنشطة" subtitle="إدارة شرائح العجلة وتعديل أوقاتها.">
       <Stack spacing={2}>
-        <Typography variant="body2" color="text.secondary">حرّر نص الشريحة ومرجعها وإزاحتها وترتيبها؛ الصلوات الخمس تبقى خارج هذا الجدول.</Typography>
+        <Typography variant="body2" color="text.secondary">حرّر نص الشريحة ومرجعها وإزاحتها وترتيبها.</Typography>
+        
+        <Paper sx={{ p: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>إعدادات العجلة العامة:</Typography>
+          <TextField 
+            label="مدة التوهج لكل الشرائح (دقيقة)" 
+            type="number" 
+            size="small" 
+            value={pulseDuration} 
+            onChange={(e) => setPulseDuration(Number(e.target.value))} 
+            sx={{ width: 250 }} 
+          />
+        </Paper>
+
         <Paper sx={{ overflow: 'hidden' }}>
           <TableContainer>
             <Table>

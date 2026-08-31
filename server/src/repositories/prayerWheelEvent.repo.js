@@ -39,4 +39,20 @@ async function reorder(updates) {
   }
 }
 
-module.exports = { listAll, updateEvent, reorder };
+async function getSettings() {
+  const [rows] = await db.query("SELECT value FROM settings WHERE scope='global' AND setting_key='prayer_wheel_settings'");
+  if (rows.length && rows[0].value) {
+    try {
+      return JSON.parse(rows[0].value);
+    } catch(e) {}
+  }
+  return { pulse_duration_minutes: 10 };
+}
+
+async function saveSettings(settings) {
+  const value = JSON.stringify({ pulse_duration_minutes: Number(settings.pulse_duration_minutes) || 10 });
+  await db.query("INSERT INTO settings (scope, setting_key, value) VALUES ('global', 'prayer_wheel_settings', ?) ON DUPLICATE KEY UPDATE value = VALUES(value)", [value]);
+  return getSettings();
+}
+
+module.exports = { listAll, updateEvent, reorder, getSettings, saveSettings };

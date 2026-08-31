@@ -15,3 +15,13 @@ exports.reorder = asyncHandler(async (req, res) => {
   await repo.reorder(req.body);
   res.json({ success: true });
 });
+
+exports.getSettings = asyncHandler(async (req, res) => {
+  const data = await repo.getSettings();
+  res.json({ success: true, data });
+});
+
+exports.saveSettings = asyncHandler(async (req, res) => {
+  const data = await repo.saveSettings(req.body);
+  res.json({ success: true, data });
+});

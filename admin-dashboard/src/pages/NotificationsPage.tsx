@@ -298,7 +298,7 @@ export default function NotificationsPage() {
 
             <Box sx={{ p: 2, bgcolor: 'background.default', borderRadius: 2, border: '1px solid rgba(255,255,255,0.1)' }}>
               <Typography variant="caption" color="text.secondary">معاينة الإشعار على الهاتف:</Typography>
-              <Typography fontWeight={700} sx={{ mt: 1 }}>🔔 {title || 'عنوان الإشعار'}</Typography>
+              <Typography sx={{ fontWeight: 700, mt: 1 }}>🔔 {title || 'عنوان الإشعار'}</Typography>
               <Typography variant="body2">{body || 'تفاصيل الإشعار تظهر هنا...'}</Typography>
             </Box>
 

@@ -36,14 +36,7 @@ export const prayerWheelConfig: PrayerWheelConfig = {
       durationMinutes: 20,
       reverseTextDirection: true,
     },
-    {
-      id: 'maghribPrayer',
-      label: 'صلاة المغرب',
-      sourceKey: 'maghrib',
-      offsetMinutes: 0,
-      durationMinutes: 10,
-      reverseTextDirection: true,
-    },
+    
     {
       id: 'maghribSunnah',
       label: 'سنة المغرب',
@@ -52,14 +45,7 @@ export const prayerWheelConfig: PrayerWheelConfig = {
       durationMinutes: 10,
       reverseTextDirection: true,
     },
-    {
-      id: 'ishaPrayer',
-      label: 'صلاة العشاء',
-      sourceKey: 'isha',
-      offsetMinutes: 0,
-      durationMinutes: 10,
-      reverseTextDirection: true,
-    },
+    
     {
       id: 'surahMalik',
       label: 'سورة الملك',
@@ -112,13 +98,7 @@ export const prayerWheelConfig: PrayerWheelConfig = {
       offsetMinutes: 45,
       durationMinutes: 15,
     },
-    {
-      id: 'fajrPrayer',
-      label: 'صلاة الفجر',
-      sourceKey: 'fajr',
-      offsetMinutes: 0,
-      durationMinutes: 10,
-    },
+    
     {
       id: 'morningQuran',
       label: 'قراءة القرآن',
@@ -167,13 +147,7 @@ export const prayerWheelConfig: PrayerWheelConfig = {
       durationMinutes: 15,
       reverseTextDirection: true,
     },
-    {
-      id: 'dhuhrPrayer',
-      label: 'صلاة الظهر',
-      sourceKey: 'dhuhr',
-      offsetMinutes: 0,
-      durationMinutes: 10,
-    },
+    
     {
       id: 'dhuhrSunnah',
       label: 'سنة صلاة الظهر',
@@ -202,12 +176,6 @@ export const prayerWheelConfig: PrayerWheelConfig = {
       offsetMinutes: 15,
       durationMinutes: 15,
     },
-    {
-      id: 'asrPrayer',
-      label: 'صلاة العصر',
-      sourceKey: 'asr',
-      offsetMinutes: 0,
-      durationMinutes: 10,
-    },
+    
   ],
 };
